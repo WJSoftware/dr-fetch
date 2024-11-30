@@ -1,0 +1,44 @@
+{
+  "name": "wj-fetch",
+  "version": "0.0.1",
+  "description": "Fetching done right, not just the happy path.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "scripts": {
+    "test": "ts-mocha -n loader=ts-node/esm -p ./tsconfig.json ./src/tests/**/*.test.ts",
+    "build": "npx tsc && npx publint"
+  },
+  "keywords": [
+    "fetch"
+  ],
+  "author": {
+    "email": "webJose@gmail.com",
+    "name": "José Pablo Ramírez Vargas",
+    "url": "https://github.com/WJSoftware"
+  },
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@types/chai": "^5.0.1",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^22.10.1",
+    "@types/sinon": "^17.0.3",
+    "chai": "^5.1.2",
+    "mocha": "^10.8.2",
+    "publint": "^0.2.12",
+    "sinon": "^19.0.2",
+    "ts-mocha": "^10.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.2"
+  }
+}
