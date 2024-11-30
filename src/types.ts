@@ -36,7 +36,7 @@ type CoreFetchResult<TStatus extends StatusCode, TBody> = {
 });
 
 /**
- * Type that builds WjFetch's final result object's type.
+ * Type that builds DrFetch's final result object's type.
  */
 export type FetchResult<T, TStatus extends StatusCode, TBody = undefined> =
     (unknown extends T ? CoreFetchResult<TStatus, TBody> : T | CoreFetchResult<TStatus, TBody>) extends infer R ? R : never;

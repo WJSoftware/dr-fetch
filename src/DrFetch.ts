@@ -17,7 +17,7 @@ const textTypes: (string | RegExp)[] = [
 ];
 
 /**
- * # WjFetch
+ * # DrFetch
  * 
  * Class that wraps around the provided data-fetching function (or the standard `fetch` function) in order to provide 
  * full body typing.
@@ -32,7 +32,7 @@ const textTypes: (string | RegExp)[] = [
  * type ToDo = { id: number; text: string; }
  * type NotAuthBody = { loginUrl: string; }
  * 
- * const fetcher = new WjFetch()
+ * const fetcher = new DrFetch()
  *     .for<200, ToDo[]>()
  *     .for<401, NotAuthBody>()
  *     ;
@@ -55,7 +55,7 @@ const textTypes: (string | RegExp)[] = [
  * 
  * @example
  * ```typescript
- * const fetcher = new WjFetch()
+ * const fetcher = new DrFetch()
  *     .for<200 | 201, { data: ToDo }>()
  *     ;
  * ```
@@ -66,7 +66,7 @@ const textTypes: (string | RegExp)[] = [
  * 
  * @example
  * ```typescript
- * const fetcher = new WjFetch()
+ * const fetcher = new DrFetch()
  *     .for<OkStatusCode, { data: ToDo }>()
  *     ;
  * ```
@@ -80,7 +80,7 @@ const textTypes: (string | RegExp)[] = [
  * existing one using the parent's `clone` function.  When cloning, pass a new data-fetching function (if required) so 
  * the clone uses this one instead of the one of the parent fetcher.
  */
-export class WjFetch<T = unknown> {
+export class DrFetch<T = unknown> {
     #fetchFn: typeof fetch;
     #customParsers: [string | RegExp, (response: Response) => Promise<any>][] = [];
 
@@ -107,7 +107,7 @@ export class WjFetch<T = unknown> {
      * }
      * 
      * // Create the class now.
-     * const fetcher = new WjFetch(myCustomFetch);
+     * const fetcher = new DrFetch(myCustomFetch);
      * ```
      * 
      * If you need to do special parsing of the body, don't do post-interception and instead use the `withParser` 
@@ -134,12 +134,12 @@ export class WjFetch<T = unknown> {
          * Determines if parsers are included in the clone.  The default is `true`.
          */
         includeParsers?: boolean;
-    }): TInherit extends true ? WjFetch<T> : WjFetch {
-        const newClone = new WjFetch(options?.fetchFn ?? this.#fetchFn);
+    }): TInherit extends true ? DrFetch<T> : DrFetch {
+        const newClone = new DrFetch(options?.fetchFn ?? this.#fetchFn);
         if (options?.includeParsers ?? true) {
             newClone.#customParsers = [...this.#customParsers];
         }
-        return newClone as WjFetch<T>;
+        return newClone as DrFetch<T>;
     }
 
     /**
@@ -163,8 +163,8 @@ export class WjFetch<T = unknown> {
      * be a single status code, or multiple status codes.
      * @returns This parser object with its response type modified to include the body specification provided.
      */
-    for<TStatus extends StatusCode, TBody = {}>(): WjFetch<FetchResult<T, TStatus, TBody>> {
-        return this as WjFetch<FetchResult<T, TStatus, TBody>>;
+    for<TStatus extends StatusCode, TBody = {}>(): DrFetch<FetchResult<T, TStatus, TBody>> {
+        return this as DrFetch<FetchResult<T, TStatus, TBody>>;
     }
 
     // notFor<TStatus extends StatusCode>(status: TStatus)
