@@ -1,4 +1,4 @@
-# wj-fetch
+# dr-fetch
 
 This is one more package for fetching.  The difference with other packages is that this one does it right.
 
@@ -29,7 +29,7 @@ such thing.
 ### Installation
 
 ```bash
-npm i wj-fetch
+npm i dr-fetch
 ```
 
 ### Create Custom Fetch Function
@@ -55,7 +55,7 @@ Think of this custom function as the place where you do interceptions (if you ar
 ### Create Fetcher Object
 
 ```typescript
-import { WjFetch } from "wj-fetch";
+import { WjFetch } from "dr-fetch";
 import { myFetch } from "./myFetch.js";
 
 const fetcher = new WjFetch(myFetch);
@@ -131,7 +131,7 @@ what if your API is standardized so all status `400` bodies look the same?  Then
 
 ```typescript
 // root-fetcher.ts
-import { WjFetch } from "wj-fetch";
+import { WjFetch } from "dr-fetch";
 import { myFetch } from "./my-fetch.js";
 import type { BadRequestBody } from "my-datatypes.js";
 

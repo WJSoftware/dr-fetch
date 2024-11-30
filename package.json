@@ -1,5 +1,5 @@
 {
-  "name": "wj-fetch",
+  "name": "dr-fetch",
   "version": "0.0.1",
   "description": "Fetching done right, not just the happy path.",
   "main": "dist/index.js",
