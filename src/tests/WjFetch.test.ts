@@ -1,9 +1,9 @@
 import { expect } from "chai";
 import { describe, test } from "mocha";
 import { fake } from 'sinon';
-import { WjFetch } from "../WjFetch.js";
+import { DrFetch } from "../DrFetch.js";
 
-describe('WjFetch', () => {
+describe('DrFetch', () => {
     describe('clone()', () => {
         [
             {
@@ -32,7 +32,7 @@ describe('WjFetch', () => {
                 const contentType = 'text/plain';
                 const origFetchFn = fake.resolves(new Response('Hi!', { headers: { 'content-type': contentType } }));
                 const customParserFn = fake();
-                const origFetcher = new WjFetch(origFetchFn);
+                const origFetcher = new DrFetch(origFetchFn);
                 origFetcher.withParser(contentType, customParserFn);
                 const newFetchFn = fake.resolves(new Response('Hi!', { headers: { 'content-type': contentType } }));
 
@@ -52,7 +52,7 @@ describe('WjFetch', () => {
             const origFetch = globalThis.fetch;
             const fakeFetch = fake.resolves(new Response(null));
             globalThis.fetch = fakeFetch;
-            const fetcher = new WjFetch();
+            const fetcher = new DrFetch();
 
             // Act.
             try {
@@ -68,7 +68,7 @@ describe('WjFetch', () => {
         test("Should call the provided data-fetching function.", async () => {
             // Arrange.
             const fakeFetch = fake.resolves(new Response(null));
-            const fetcher = new WjFetch(fakeFetch);
+            const fetcher = new DrFetch(fakeFetch);
 
             // Act.
             await fetcher.fetch('x');
@@ -116,7 +116,7 @@ describe('WjFetch', () => {
             test(`Should parse the body using the stock body parsers when content type is "${tc.contentType}".`, async () => {
                 // Arrange.
                 const fetchFn = fake.resolves(new Response(tc.body, { headers: { 'content-type': tc.contentType } }));
-                const fetcher = new WjFetch(fetchFn);
+                const fetcher = new DrFetch(fetchFn);
 
                 // Act.
                 const result = await fetcher.for<200, string | object>().fetch('x');
@@ -133,7 +133,7 @@ describe('WjFetch', () => {
         test("Should return 'null' as body whenever the response carries no body.", async () => {
             // Arrange.
             const fetchFn = fake.resolves(new Response());
-            const fetcher = new WjFetch(fetchFn);
+            const fetcher = new DrFetch(fetchFn);
 
             // Act.
             const response = await fetcher.for<200, string>().fetch('x');
@@ -146,7 +146,7 @@ describe('WjFetch', () => {
             const response = new Response('x');
             response.headers.delete('content-type');
             const fetchFn = fake.resolves(response);
-            const fetcher = new WjFetch(fetchFn);
+            const fetcher = new DrFetch(fetchFn);
             let didThrow = false;
 
             // Act.
@@ -163,7 +163,7 @@ describe('WjFetch', () => {
         test("Should throw an error if the content type is unknown by the built-in parsers and custom parsers.", async () => {
             // Arrange.
             const fetchFn = fake.resolves(new Response('x', { headers: { 'content-type': 'application/xml' }}));
-            const fetcher = new WjFetch(fetchFn);
+            const fetcher = new DrFetch(fetchFn);
             let didThrow = false;
 
             // Act.
@@ -200,7 +200,7 @@ describe('WjFetch', () => {
                 ],
             },
         ].flatMap(x => {
-            const expanded = [];
+            const expanded: (Omit<(typeof x), 'contentTypes'> & { contentType: string; })[] = [];
             for (let ct of x.contentTypes) {
                 expanded.push({
                     pattern: x.pattern,
@@ -214,7 +214,7 @@ describe('WjFetch', () => {
                 // Arrange.
                 const parserFn = fake();
                 const fetchFn = fake.resolves(new Response('x', { headers: { 'content-type': tc.contentType }}));
-                const fetcher = new WjFetch(fetchFn);
+                const fetcher = new DrFetch(fetchFn);
                 fetcher.withParser(tc.pattern, parserFn);
 
                 // Act.

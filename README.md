@@ -55,28 +55,28 @@ Think of this custom function as the place where you do interceptions (if you ar
 ### Create Fetcher Object
 
 ```typescript
-import { WjFetch } from "dr-fetch";
+import { DrFetch } from "dr-fetch";
 import { myFetch } from "./myFetch.js";
 
-const fetcher = new WjFetch(myFetch);
+const fetcher = new DrFetch(myFetch);
 // If you don't need a custom fetch function, just do:
-const fetcher = new WjFetch();
+const fetcher = new DrFetch();
 ```
 
 ### Adding a Custom Body Parser
 
-One can say that the `WjFetch` class comes with 2 basic body parsers:
+One can say that the `DrFetch` class comes with 2 basic body parsers:
 
 1. JSON parser when the the value of the `coontent-type` response header is `application/json` or similar 
 (`application/problem+json`, for instance).
 2. Text parser when the vlaue of the `content-type` response header is `text/<something>`, such as `text/plain` or 
 `text/csv`.
 
-If your API sends a content type not included in any of the above two cases, use `WjFetch.withParser()` to add a custom 
+If your API sends a content type not included in any of the above two cases, use `DrFetch.withParser()` to add a custom 
 parser for the content type you are expecting.  The class allows for fluent syntax, so you can chain calls:
 
 ```typescript
-const fetcher = new WjFetch(myFetch)
+const fetcher = new DrFetch(myFetch)
     .withParser('custom/contentType', async (response) => {
         // Do what you must with the provided response object.  In the end, you must return the parsed body.
         return finalBody;
@@ -131,11 +131,11 @@ what if your API is standardized so all status `400` bodies look the same?  Then
 
 ```typescript
 // root-fetcher.ts
-import { WjFetch } from "dr-fetch";
+import { DrFetch } from "dr-fetch";
 import { myFetch } from "./my-fetch.js";
 import type { BadRequestBody } from "my-datatypes.js";
 
-export default new WjFetch(myFetch)
+export default new DrFetch(myFetch)
     .withParser(...) // Optional parsers
     .withParser(...)
     .for<400, BadRequestBody>()
