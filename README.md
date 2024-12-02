@@ -69,7 +69,7 @@ One can say that the `DrFetch` class comes with 2 basic body parsers:
 
 1. JSON parser when the the value of the `coontent-type` response header is `application/json` or similar 
 (`application/problem+json`, for instance).
-2. Text parser when the vlaue of the `content-type` response header is `text/<something>`, such as `text/plain` or 
+2. Text parser when the value of the `content-type` response header is `text/<something>`, such as `text/plain` or 
 `text/csv`.
 
 If your API sends a content type not included in any of the above two cases, use `DrFetch.withParser()` to add a custom 
