@@ -169,7 +169,35 @@ const localFetcher = rootFetcher.clone(true, { includeParsers: false }); // No c
 > **IMPORTANT**:  The first parameter to the `clone` function cannot be a variable.  It is just used as a TypeScript 
 > trick to reset the body typing.  The value itself means nothing in runtime because types are not a runtime thing.
 
+## Shortcut Functions
+
+> Since **v0.3.0**
+
+`DrFetch` objects now provide the shortcut functions `get`, `post`, `patch`, `put` and `delete`.  Except for `get`, all 
+these accept a body parameter.  When this body is a POJO or an array, the body is stringified and the `Content-Type` 
+header is given the value `application/json`.  If a body of any other type is given (that the `fetch()` function 
+accepts, such as `FormData`), no headers are explicitly specified and therefore it is up to what `fetch()` (or the 
+custom data-fetching function you provide) does in these cases.
+
+```typescript
+const newTodo = { text: 'I am new.  Insert me!' };
+const response = await fetcher
+    .for<200, { success: boolean; }>()
+    .for<400, { errors: string[]; }>()
+    .post('/api/todos', newTodo);
+
+const newTodos = [{ text: 'I am new.  Insert me!' }, { text: 'Me too!' }];
+const response = await fetcher
+    .for<200, { success: boolean; }>()
+    .for<400, { errors: string[]; }>()
+    .post('/api/todos', newTodos);
+```
+
+As stated, your custom fetch can be used to further customize the request because these shortcut functions will, in the 
+end, call it.
+
 ## Usage Without TypeScript (JavaScript Projects)
 
 Why are you a weird fellow/gal?  Anyway, prejudice aside, body typing will mean nothing to you, so forget about `for()` 
-and anything else regarding types.  Do your custom data-fetching function, add your custom body parsers and that's it.
+and anything else regarding types.  Do your custom data-fetching function, add your custom body parsers and fetch away 
+using `.fetch()`, `.get()`, `.post()`, `.put()`, `.patch()` or `.delete()`.

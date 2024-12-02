@@ -3,6 +3,18 @@ import { describe, test } from "mocha";
 import { fake } from 'sinon';
 import { DrFetch } from "../DrFetch.js";
 
+const shortcutMethodsWithBody = [
+    'post',
+    'put',
+    'patch',
+    'delete',
+] as const;
+
+const allShortcutMethods = [
+    'get',
+    ...shortcutMethodsWithBody
+] as const;
+
 describe('DrFetch', () => {
     describe('clone()', () => {
         [
@@ -162,7 +174,7 @@ describe('DrFetch', () => {
         });
         test("Should throw an error if the content type is unknown by the built-in parsers and custom parsers.", async () => {
             // Arrange.
-            const fetchFn = fake.resolves(new Response('x', { headers: { 'content-type': 'application/xml' }}));
+            const fetchFn = fake.resolves(new Response('x', { headers: { 'content-type': 'application/xml' } }));
             const fetcher = new DrFetch(fetchFn);
             let didThrow = false;
 
@@ -213,7 +225,7 @@ describe('DrFetch', () => {
             test(`Should use the provided custom parser with ${tc.patternType} pattern "${tc.pattern.toString()}" for content type "${tc.contentType}".`, async () => {
                 // Arrange.
                 const parserFn = fake();
-                const fetchFn = fake.resolves(new Response('x', { headers: { 'content-type': tc.contentType }}));
+                const fetchFn = fake.resolves(new Response('x', { headers: { 'content-type': tc.contentType } }));
                 const fetcher = new DrFetch(fetchFn);
                 fetcher.withParser(tc.pattern, parserFn);
 
@@ -222,6 +234,99 @@ describe('DrFetch', () => {
 
                 // Assert.
                 expect(parserFn.calledOnce).to.be.true;
+            });
+        })
+    });
+    describe('Shortcut Functions', () => {
+        allShortcutMethods.map(x => ({
+            shortcutFn: x,
+            expectedMethod: x.toUpperCase()
+        })).forEach(tc => {
+            test(`${tc.shortcutFn}():  Should perform a fetch() call with the '${tc.expectedMethod}' method.`, async () => {
+                // Arrange.
+                const fetchFn = fake.resolves(new Response());
+                const fetcher = new DrFetch(fetchFn);
+
+                // Act.
+                await fetcher[tc.shortcutFn]('x');
+
+                // Assert.
+                expect(fetchFn.calledOnce).to.be.true;
+                expect(fetchFn.args[0][1]['method']).to.equal(tc.expectedMethod);
+            });
+        });
+        shortcutMethodsWithBody.forEach(method => {
+            test(`${method}():  Should stringify the body argument when said argument is a POJO object.`, async () => {
+                // Arrange.
+                const body = { a: 'hi' };
+                const fetchFn = fake.resolves(new Response());
+                const fetcher = new DrFetch(fetchFn);
+
+                // Act.
+                await fetcher[method]('x', body);
+
+                // Assert.
+                expect(fetchFn.calledOnce).to.be.true;
+                expect(fetchFn.args[0][1]['body']).to.equal(JSON.stringify(body));
+                expect(fetchFn.args[0][1]['headers']['content-type']).to.equal('application/json');
+            });
+        });
+        shortcutMethodsWithBody.forEach(method => {
+            test(`${method}():  Should stringify the body argument when said argument is an array.`, async () => {
+                // Arrange.
+                const body = [{ a: 'hi' }];
+                const fetchFn = fake.resolves(new Response());
+                const fetcher = new DrFetch(fetchFn);
+
+                // Act.
+                await fetcher[method]('x', body);
+
+                // Assert.
+                expect(fetchFn.calledOnce).to.be.true;
+                expect(fetchFn.args[0][1]['body']).to.equal(JSON.stringify(body));
+                expect(fetchFn.args[0][1]['headers']['content-type']).to.equal('application/json');
+            });
+        });
+        shortcutMethodsWithBody.flatMap(method => [
+            {
+                body: new ReadableStream(),
+                text: 'a readable stream',
+            },
+            {
+                body: new Blob(),
+                text: 'a blob',
+            },
+            {
+                body: new ArrayBuffer(8),
+                text: 'an array buffer',
+            },
+            {
+                body: new FormData(),
+                text: 'a form data object',
+            },
+            {
+                body: new URLSearchParams(),
+                text: 'a URL search params object',
+            },
+            {
+                body: 'abc',
+                text: 'a string'
+            }
+        ].map(body => ({
+            method,
+            body
+        }))).forEach(tc => {
+            test(`${tc.method}():  Should not stringify the body when said argument is ${tc.body.text}.`, async () => {
+                // Arrange.
+                const fetchFn = fake.resolves(new Response());
+                const fetcher = new DrFetch(fetchFn);
+
+                // Act.
+                await fetcher[tc.method]('x', tc.body.body);
+
+                // Assert.
+                expect(fetchFn.calledOnce).to.be.true;
+                expect(fetchFn.args[0][1]['body']).to.equal(tc.body.body);
             });
         })
     });

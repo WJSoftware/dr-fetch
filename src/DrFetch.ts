@@ -17,6 +17,22 @@ const textTypes: (string | RegExp)[] = [
 ];
 
 /**
+ * Determines if the given object is a POJO.
+ * @param obj Object under test.
+ * @returns `true` if it is a POJO, or `false` otherwise.
+ */
+function isPojo(obj: unknown): obj is Record<string, any> {
+    if (obj === null || typeof obj !== 'object') {
+        return false;
+    }
+    const proto = Object.getPrototypeOf(obj);
+    if (proto == null) {
+        return true;
+    }
+    return proto === Object.prototype;
+}
+
+/**
  * # DrFetch
  * 
  * Class that wraps around the provided data-fetching function (or the standard `fetch` function) in order to provide 
@@ -229,5 +245,99 @@ export class DrFetch<T = unknown> {
             statusText: response.statusText,
             body
         } as T;
+    }
+
+    #processBody(body: BodyInit | null | Record<string, any> | undefined) {
+        let headers: Record<string, string> = {};
+        if (isPojo(body) || Array.isArray(body)) {
+            body = JSON.stringify(body);
+            headers['content-type'] = 'application/json';
+        }
+        return [body as BodyInit | null, headers] as const;
+    }
+
+    /**
+     * Shortcut method to emit a GET HTTP request.
+     * @param url URL for the fetch function call.
+     * @returns A response object with the HTTP response's `ok`, `status`, `statusText` and `body` properties.
+     */
+    get(url: URL | string) {
+        return this.fetch(url, { method: 'GET' });
+    }
+
+    /**
+     * Shortcut method to emit a POST HTTP request.
+     * @param url URL for the fetch function call.
+     * @param body The data to send as body.
+     * 
+     * If a POJO is passed, it will be stringified and the `Content-Type` header of the request will be set to 
+     * `'application/json'`.  This is also true with arrays.
+     * 
+     * > **NOTE**:  You must make sure that the POJO or the array (and its elements) you pass as body are serializable.
+     * 
+     * Any other body type will not generate a `Content-Type` header and will be reliant on what the `fetch()` function 
+     * does in those cases.
+     * @returns A response object with the HTTP response's `ok`, `status`, `statusText` and `body` properties.
+     */
+    post(url: URL | string, body?: BodyInit | null | Record<string, any>) {
+        const [pBody, headers] = this.#processBody(body);
+        return this.fetch(url, { method: 'POST', body: pBody, headers });
+    }
+
+    /**
+     * Shortcut method to emit a PATCH HTTP request.
+     * @param url URL for the fetch function call.
+     * @param body The data to send as body.
+     * 
+     * If a POJO is passed, it will be stringified and the `Content-Type` header of the request will be set to 
+     * `'application/json'`.  This is also true with arrays.
+     * 
+     * > **NOTE**:  You must make sure that the POJO or the array (and its elements) you pass as body are serializable.
+     * 
+     * Any other body type will not generate a `Content-Type` header and will be reliant on what the `fetch()` function 
+     * does in those cases.
+     * @returns A response object with the HTTP response's `ok`, `status`, `statusText` and `body` properties.
+     */
+    patch(url: URL | string, body?: BodyInit | null | Record<string, any>) {
+        const [pBody, headers] = this.#processBody(body);
+        return this.fetch(url, { method: 'PATCH', body: pBody, headers });
+    }
+
+    /**
+     * Shortcut method to emit a DELETE HTTP request.
+     * @param url URL for the fetch function call.
+     * @param body The data to send as body.
+     * 
+     * If a POJO is passed, it will be stringified and the `Content-Type` header of the request will be set to 
+     * `'application/json'`.  This is also true with arrays.
+     * 
+     * > **NOTE**:  You must make sure that the POJO or the array (and its elements) you pass as body are serializable.
+     * 
+     * Any other body type will not generate a `Content-Type` header and will be reliant on what the `fetch()` function 
+     * does in those cases.
+     * @returns A response object with the HTTP response's `ok`, `status`, `statusText` and `body` properties.
+     */
+    delete(url: URL | string, body?: BodyInit | null | Record<string, any>) {
+        const [pBody, headers] = this.#processBody(body);
+        return this.fetch(url, { method: 'DELETE', body: pBody, headers });
+    }
+
+    /**
+     * Shortcut method to emit a PUT HTTP request.
+     * @param url URL for the fetch function call.
+     * @param body The data to send as body.
+     * 
+     * If a POJO is passed, it will be stringified and the `Content-Type` header of the request will be set to 
+     * `'application/json'`.  This is also true with arrays.
+     * 
+     * > **NOTE**:  You must make sure that the POJO or the array (and its elements) you pass as body are serializable.
+     * 
+     * Any other body type will not generate a `Content-Type` header and will be reliant on what the `fetch()` function 
+     * does in those cases.
+     * @returns A response object with the HTTP response's `ok`, `status`, `statusText` and `body` properties.
+     */
+    put(url: URL | string, body?: BodyInit | null | Record<string, any>) {
+        const [pBody, headers] = this.#processBody(body);
+        return this.fetch(url, { method: 'PUT', body: pBody, headers });
     }
 }
