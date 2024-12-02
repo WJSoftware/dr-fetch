@@ -218,7 +218,7 @@ export class DrFetch<T = unknown> {
      * object.
      * @param url URL paramter for the data-fetching function.
      * @param init Options for the data-fetching function.
-     * @returns A response object with the HTTP response's `ok`, `status` and `body` properties.
+     * @returns A response object with the HTTP response's `ok`, `status`, `statusText` and `body` properties.
      */
     async fetch(url: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) {
         const response = await this.#fetchFn(url, init);
