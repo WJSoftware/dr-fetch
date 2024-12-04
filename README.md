@@ -6,7 +6,7 @@ This package:
 
 + Uses the modern, standardized `fetch` function.
 + Does **not** throw on non-OK HTTP responses.
-+ Allows to fully type all possible HTTP responses depending on the HTTP status code.
++ **Allows to fully type all possible HTTP responses depending on the HTTP status code.**
 
 ## Does a Non-OK Status Code Warrant an Error?
 
@@ -35,16 +35,20 @@ npm i dr-fetch
 ### Create Custom Fetch Function
 
 This is optional and only needed if you need to do something before or after fetching.  By far the most common task to 
-do is to add an authorization header to every call.
+do is to add the `authorization` header and the `accept` header to every call.
 
 ```typescript
 // myFetch.ts
 import { obtainToken } from './magical-auth-stuff.js';
+import { setHeaders } from 'dr-fetch';
 
 export function myFetch(url: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) {
     const token = obtainToken();
-    // Add token to request headers.  Not shown because it depends on whether init was given, whether init.headers is
-    // a POJO or not, etc.  TypeScript will guide you through the possibilities.
+    // Make sure there's an object where headers can be added:
+    init ??= {};
+    // With setHeaders(), you can add headers to 'init' with a map, an array of tuples, a Headers 
+    // object or a POJO object.
+    setHeaders(init, { 'Accept': 'application/json', 'Authorization': `Bearer ${token}`});
     // Finally, do fetch.
     return fetch(url, init);
 }
@@ -55,28 +59,34 @@ Think of this custom function as the place where you do interceptions (if you ar
 ### Create Fetcher Object
 
 ```typescript
+// fetcher.ts
 import { DrFetch } from "dr-fetch";
 import { myFetch } from "./myFetch.js";
 
-const fetcher = new DrFetch(myFetch);
+export default new DrFetch(myFetch);
 // If you don't need a custom fetch function, just do:
-const fetcher = new DrFetch();
+export default new DrFetch();
 ```
 
 ### Adding a Custom Body Parser
 
+This step is also optional.
+
 One can say that the `DrFetch` class comes with 2 basic body parsers:
 
-1. JSON parser when the the value of the `coontent-type` response header is `application/json` or similar 
+1. JSON parser when the value of the `coontent-type` response header is `application/json` or similar 
 (`application/problem+json`, for instance).
 2. Text parser when the value of the `content-type` response header is `text/<something>`, such as `text/plain` or 
 `text/csv`.
 
-If your API sends a content type not included in any of the above two cases, use `DrFetch.withParser()` to add a custom 
+If your API sends a content type not covered by any of the above two cases, use `DrFetch.withParser()` to add a custom 
 parser for the content type you are expecting.  The class allows for fluent syntax, so you can chain calls:
 
 ```typescript
-const fetcher = new DrFetch(myFetch)
+// fetcher.ts
+...
+
+export default new DrFetch(myFetch)
     .withParser('custom/contentType', async (response) => {
         // Do what you must with the provided response object.  In the end, you must return the parsed body.
         return finalBody;
@@ -94,6 +104,7 @@ This is the fun part where we can enumerate the various shapes of the body depen
 
 ```typescript
 import type { MyData } from "./my-datatypes.js";
+import fetcher from './fetcher.js';
 
 const response = await fetcher
     .for<200, MyData[]>()
@@ -180,21 +191,124 @@ accepts, such as `FormData`), no headers are explicitly specified and therefore 
 custom data-fetching function you provide) does in these cases.
 
 ```typescript
+import type { Todo } from './myTypes.js';
+
 const newTodo = { text: 'I am new.  Insert me!' };
 const response = await fetcher
-    .for<200, { success: boolean; }>()
+    .for<200, { success: true; entity: Todo; }>()
     .for<400, { errors: string[]; }>()
     .post('/api/todos', newTodo);
 
 const newTodos = [{ text: 'I am new.  Insert me!' }, { text: 'Me too!' }];
 const response = await fetcher
-    .for<200, { success: boolean; }>()
+    .for<200, { success: true; entities: Todo[]; }>()
     .for<400, { errors: string[]; }>()
     .post('/api/todos', newTodos);
 ```
 
 As stated, your custom fetch can be used to further customize the request because these shortcut functions will, in the 
 end, call it.
+
+## setHeader and makeIterableHeaders
+
+> Since **v0.4.0**
+
+These are two helper functions that assist you in writing custom data-fetching functions.
+
+If you haven't realized, the `init` paramter in `fetch()` can have the headers specified in 3 different formats:
+
++ As a `Headers` object (an instance of the `Headers` class)
++ As a POJO object, where the property key is the header name, and the property value is the header value
++ As an array of tuples of type `[string, string]`, where the first element is the header name, and the second one is 
+its value
+
+To further complicate this, the POJO object also accepts an array of strings as property values for headers that accept 
+multiple values.
+
+So writing a formal custom fetch **without** `setHeaders()` looks like this:
+
+```typescript
+export function myFetch(URL: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) {
+    const acceptHdrKey = 'Accept';
+    const acceptHdrValue = 'application/json';
+    init ??= {};
+    init.headers ??= new Headers();
+    if (Array.isArray(init.headers)) {
+        // Tuples, so push a tuple per desired header:
+        init.headers.push([acceptHdrKey, acceptHdrValue]);
+    }
+    else if (init.headers instanceof Headers) {
+        init.headers.set(acceptHdrKey, acceptHdrValue);
+    }
+    else {
+        // POJO object, so add headers as properties of an object:
+        init.headers[acceptHdrKey] = acceptHdrValue;
+    }
+    return fetch(url, init);
+}
+```
+
+This would also get more complex if you account for multi-value headers.  Now the same thing, using `setHeaders()`:
+
+```typescript
+export function myFetch(URL: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) {
+    init ??= {};
+    setHeaders(init, [['Accept', 'application/json']]);
+    // OR:
+    setHeaders(init, new Map([['Accept', ['application/json', 'application/xml']]]));
+    // OR:
+    setHeaders(init, { 'Accept': ['application/json', 'application/xml'] });
+    // OR:
+    setHeaders(init, new Headers([['Accept', 'application/json']]));
+    return fetch(url, init);
+}
+```
+
+The difference is indeed pretty shocking.  Also note that adding arrays of values doesn't increase the complexity of 
+the code.
+
+### makeIterableHeaders
+
+This function is the magic trick that powers the `setHeaders` function, and is very handy for troubleshooting or unit 
+testing because it can take a collection of HTTP header specifications in the form of a map, a Headers object, a POJO 
+object or an array of tuples and return an iterator object that iterates through the definitions in the same way:  A 
+list of tuples.
+
+```typescript
+const myHeaders1 = new Headers();
+myHeaders1.set('Accept', 'application/json');
+myHeaders1.set('Authorization', 'Bearer x');
+
+const myHeaders2 = new Map();
+myHeaders2.set('Accept', 'application/json');
+myHeaders2.set('Authorization', 'Bearer x');
+
+const myHeaders3 = {
+    'Accept': 'application/json',
+    'Authorization': 'Bearer x'
+};
+
+const myHeaders4 = [
+    ['Accept', 'application/json'],
+    ['Authorization', 'Bearer x'],
+];
+
+// The output of these is identical.
+console.log([...makeIterableHeaders(myHeaders1)]);
+console.log([...makeIterableHeaders(myHeaders2)]);
+console.log([...makeIterableHeaders(myHeaders3)]);
+console.log([...makeIterableHeaders(myHeaders4)]);
+```
+
+This function is a **generator function**, so what returns is an iterator object.  The two most helpful ways of using 
+it are in `for..of` statements and spreading:
+
+```typescript
+for (let [key, value] of makeIterableHeaders(myHeaders)) { ... }
+
+// In unit-testing, perhaps:
+expect([...makeIterableHeaders(myHeaders)].length).to.equal(2);
+```
 
 ## Usage Without TypeScript (JavaScript Projects)
 
