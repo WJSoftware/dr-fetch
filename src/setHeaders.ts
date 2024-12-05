@@ -102,6 +102,15 @@ function setPojoHeaders(headers: Record<string, string>, newHeaders: HeaderInput
     }
 }
 
+/**
+ * Sets the provided HTTP headers into the `init.headers` property of the given `init` object.
+ * 
+ * The function sets headers, and doesn't append values to existing headers.  The only exception is when the new 
+ * headers are specified with a POJO or Map object, where the value can be an array of strings.  In these cases, the 
+ * array of values are combined and this combination becomes the value of the header.
+ * @param init The `init` object that will receive the specified headers.
+ * @param headers The collection of headers to include in the `init` object.
+ */
 export function setHeaders(init: Exclude<Parameters<typeof fetch>[1], undefined>, headers: HeaderInput) {
     if (!init) {
         throw new Error("The 'init' argument cannot be undefined.");
