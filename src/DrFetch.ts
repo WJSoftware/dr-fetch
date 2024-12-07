@@ -267,6 +267,15 @@ export class DrFetch<T = unknown> {
     }
 
     /**
+     * Shortcut method to emit a HEAD HTTP request.
+     * @param url URL for the fetch function call.
+     * @returns A response object with the HTTP response's `ok`, `status`, `statusText` and `body` properties.
+     */
+    head(url: URL | string) {
+        return this.fetch(url, { method: 'HEAD' });
+    }
+
+    /**
      * Shortcut method to emit a POST HTTP request.
      * @param url URL for the fetch function call.
      * @param body The data to send as body.
