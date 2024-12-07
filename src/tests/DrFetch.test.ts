@@ -57,6 +57,26 @@ describe('DrFetch', () => {
                 expect(customParserFn.called).to.equal(tc.includeParsers);
             });
         });
+        test("Should create a clone that uses the standard fetch() function when 'opitons.fetchFn' is 'false'.", async () => {
+            const fetchFn = fake.resolves(new Response(null));
+            const origFetch = globalThis.fetch;
+            const fetchFake = fake.resolves(new Response(null));
+            globalThis.fetch = fetchFake;
+            const fetcher = new DrFetch(fetchFn);
+
+            // Act.
+            const clone = fetcher.clone(false, { fetchFn: false });
+
+            // Assert.
+            try {
+                await clone.fetch('x');
+            }
+            finally {
+                globalThis.fetch = origFetch;
+            }
+            expect(fetchFn.calledOnce).to.be.false;
+            expect(fetchFake.calledOnce).to.be.true;
+        });
     });
     describe('fetch()', () => {
         test("Should call the stock fetch() function when the fetcher is built without a custom one.", async () => {

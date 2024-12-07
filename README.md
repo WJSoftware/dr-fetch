@@ -175,6 +175,7 @@ const localFetcher = rootFetcher.clone(true); // Same data-fetching function, bo
 const localFetcher = rootFetcher.clone(false); // Same data-fetching function and body parsers.  No body typing.
 const localFetcher = rootFetcher.clone(true, { fetchFn: specialFetch }); // Different data-fetching function.
 const localFetcher = rootFetcher.clone(true, { includeParsers: false }); // No custom body parsers.
+const localFetcher = rootFetcher.clone(true, { fetchFn: false }); // Identical parsers and body typing, stock fetch().
 ```
 
 > **IMPORTANT**:  The first parameter to the `clone` function cannot be a variable.  It is just used as a TypeScript 
@@ -209,7 +210,7 @@ const response = await fetcher
 As stated, your custom fetch can be used to further customize the request because these shortcut functions will, in the 
 end, call it.
 
-## setHeader and makeIterableHeaders
+## setHeaders and makeIterableHeaders
 
 > Since **v0.4.0**
 

@@ -143,15 +143,16 @@ export class DrFetch<T = unknown> {
      */
     clone<TInherit extends boolean>(inheritTyping: TInherit, options?: {
         /**
-         * Data-fetching function for the clone.
+         * Data-fetching function for the clone.  Pass `false` if you want the clone to use the standard `fetch()` 
+         * function.
          */
-        fetchFn?: typeof fetch;
+        fetchFn?: typeof fetch | false;
         /**
          * Determines if parsers are included in the clone.  The default is `true`.
          */
         includeParsers?: boolean;
     }): TInherit extends true ? DrFetch<T> : DrFetch {
-        const newClone = new DrFetch(options?.fetchFn ?? this.#fetchFn);
+        const newClone = new DrFetch(options?.fetchFn === false ? undefined : options?.fetchFn ?? this.#fetchFn);
         if (options?.includeParsers ?? true) {
             newClone.#customParsers = [...this.#customParsers];
         }
