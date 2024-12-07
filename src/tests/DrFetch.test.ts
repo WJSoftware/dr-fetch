@@ -12,6 +12,7 @@ const shortcutMethodsWithBody = [
 
 const allShortcutMethods = [
     'get',
+    'head',
     ...shortcutMethodsWithBody
 ] as const;
 

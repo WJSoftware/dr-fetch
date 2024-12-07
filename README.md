@@ -185,11 +185,11 @@ const localFetcher = rootFetcher.clone(true, { fetchFn: false }); // Identical p
 
 > Since **v0.3.0**
 
-`DrFetch` objects now provide the shortcut functions `get`, `post`, `patch`, `put` and `delete`.  Except for `get`, all 
-these accept a body parameter.  When this body is a POJO or an array, the body is stringified and the `Content-Type` 
-header is given the value `application/json`.  If a body of any other type is given (that the `fetch()` function 
-accepts, such as `FormData`), no headers are explicitly specified and therefore it is up to what `fetch()` (or the 
-custom data-fetching function you provide) does in these cases.
+`DrFetch` objects now provide the shortcut functions `get`, `head`, `post`, `patch`, `put` and `delete`.  Except for 
+`get` and `head`, all these accept a body parameter.  When this body is a POJO or an array, the body is stringified and 
+the `Content-Type` header is given the value `application/json`.  If a body of any other type is given (that the 
+`fetch()` function accepts, such as `FormData`), no headers are explicitly specified and therefore it is up to what 
+`fetch()` (or the custom data-fetching function you provide) does in these cases.
 
 ```typescript
 import type { Todo } from './myTypes.js';
@@ -315,4 +315,4 @@ expect([...makeIterableHeaders(myHeaders)].length).to.equal(2);
 
 Why are you a weird fellow/gal?  Anyway, prejudice aside, body typing will mean nothing to you, so forget about `for()` 
 and anything else regarding types.  Do your custom data-fetching function, add your custom body parsers and fetch away 
-using `.fetch()`, `.get()`, `.post()`, `.put()`, `.patch()` or `.delete()`.
+using `.fetch()`, `.get()`, `head()`, `.post()`, `.put()`, `.patch()` or `.delete()`.
