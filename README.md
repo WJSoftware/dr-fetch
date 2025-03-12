@@ -316,3 +316,85 @@ expect([...makeIterableHeaders(myHeaders)].length).to.equal(2);
 Why are you a weird fellow/gal?  Anyway, prejudice aside, body typing will mean nothing to you, so forget about `for()` 
 and anything else regarding types.  Do your custom data-fetching function, add your custom body parsers and fetch away 
 using `.fetch()`, `.get()`, `head()`, `.post()`, `.put()`, `.patch()` or `.delete()`.
+
+## Plug-ins?  Fancy Stuff?
+
+Indeed, we can have fancy stuff.  As demonstration, this section will show you how one can add download progress with 
+a simple class and a custom body parser.
+
+The following is a class for **Svelte v5**.  It contains a reactive `progress` property that is updated as download 
+progresses.
+
+> [!NOTE]
+> You should have no problems translating this to Vue, SolidJS or even Angular since all these are signal-powered.
+> For React, you'll have to get rid of the signals part and perhaps make it callback-powered.
+
+```ts
+export class DownloadProgress {
+    progress = $state(0);
+
+    constructor(response: Response) {
+        this.#downloadResponse(response);
+    }
+
+    async #downloadResponse(response: Response) {
+        const totalSize = +(response.headers.get('content-length') ?? 0);
+        let receivedSize = 0;
+        const bodyReader = response.body!.getReader();
+        while (bodyReader) {
+            const { done, value } = await bodyReader.read();
+            if (done) {
+                break;
+            }
+            receivedSize += value.length;
+            this.progress = (receivedSize / totalSize);
+        }
+    }
+}
+```
+
+The class is actually discarding the contents of the downloaded file.  Make sure you modify it to save the data.  This 
+example merely cares about illustrating the mechanism of how you can post-process HTTP responses.
+
+### How To Use
+
+Create a custom parser for the content type that will be received, for example, `video/mp4` for MP4 video files.
+
+```ts
+// downloader.ts
+import { DownloadProgress } from './DownloadProgress.svelte.js';
+
+export default new DrFetch(/* custom fetch function here, if needed */)
+    .withParser('video/mp4', (r) => Promise.resolve(new DownloadProgress(r)))
+    ;
+```
+
+The Svelte component would use this fetcher object.  The response from `fetcher.fetch()` (or `fetcher.get()`) will 
+carry the class instance in the `body` property.
+
+```svelte
+<script lang="ts">
+    import { DownloadProgress } from './DownloadProgress.svelte.js';
+    import downloader from './downloader.js';
+
+	let download = $state<Download>();
+
+	async function startDownload() {
+		download = (await downloader
+            .for<200, DownloadProgress>()
+            .get('https://example.com/my-video.mp4'))
+            .body
+            ;
+	}
+</script>
+
+<button type="button" onclick={startDownload}>
+	Start Download
+</button>
+<progress value={download?.progress ?? 0}></progress>
+
+```
+
+When the button is clicked, the download is started.  The custom parser simply creates the new instance of the 
+`DownloadProgress` class.  Svelte's reactivity system takes care of the rest, effectively bringing the progress element 
+to life as the download progresses.
