@@ -131,7 +131,7 @@ export class DrFetch<T = unknown> {
      * @param fetchFn Optional data-fetching function to use instead of the stock `fetch` function.
      */
     constructor(fetchFn?: typeof fetch) {
-        this.#fetchFn = fetchFn ?? fetch;
+        this.#fetchFn = fetchFn ?? fetch.bind(globalThis.window || global);
     }
 
     /**
