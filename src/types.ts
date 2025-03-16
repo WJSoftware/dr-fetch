@@ -25,6 +25,11 @@ export type StatusCode = OkStatusCode | ClientErrorStatusCode | ServerErrorStatu
 export type NonOkStatusCode = Exclude<StatusCode, OkStatusCode>;
 
 /**
+ * Type that represents a fetch response's body parser function.
+ */
+export type BodyParserFn<T> = (response: Response) => Promise<T>;
+
+/**
  * Type that builds a single status code's response.
  */
 type CoreFetchResult<TStatus extends StatusCode, TBody> = {
