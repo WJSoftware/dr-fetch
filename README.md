@@ -23,7 +23,7 @@ such thing.
 1. Install the package.
 2. Create your custom fetch function, usually including logic to inject an authorization header/token.
 3. Create a fetcher object.
-4. Optionally add body parsers.
+4. Optionally add body processors.
 5. Use the fetcher for every HTTP request needed.
 
 ### Installation
@@ -68,27 +68,28 @@ export default new DrFetch(myFetch);
 export default new DrFetch();
 ```
 
-### Adding a Custom Body Parser
+### Adding a Custom Body Processor
 
 This step is also optional.
 
-One can say that the `DrFetch` class comes with 2 basic body parsers:
+One can say that the `DrFetch` class comes with 2 basic body processors:
 
-1. JSON parser when the value of the `coontent-type` response header is `application/json` or similar 
+1. JSON processor when the value of the `content-type` response header is `application/json` or similar 
 (`application/problem+json`, for instance).
-2. Text parser when the value of the `content-type` response header is `text/<something>`, such as `text/plain` or 
+2. Text processor when the value of the `content-type` response header is `text/<something>`, such as `text/plain` or 
 `text/csv`.
 
-If your API sends a content type not covered by any of the above two cases, use `DrFetch.withParser()` to add a custom 
-parser for the content type you are expecting.  The class allows for fluent syntax, so you can chain calls:
+If your API sends a content type not covered by any of the above two cases, use `DrFetch.withProcessor()` to add a 
+custom processor for the content type you are expecting.  The class allows for fluent syntax, so you can chain calls:
 
 ```typescript
 // fetcher.ts
 ...
 
 export default new DrFetch(myFetch)
-    .withParser('custom/contentType', async (response) => {
-        // Do what you must with the provided response object.  In the end, you must return the parsed body.
+    .withProcessor('desired/contentType', async (response, stockParsers) => {
+        // Do what you must with the provided response object.  Whatever you return is carried in the `body`
+        // property of the final DrFetch.fetch()'s response object.
         return finalBody;
     });
     ;
@@ -147,35 +148,35 @@ import { myFetch } from "./my-fetch.js";
 import type { BadRequestBody } from "my-datatypes.js";
 
 export default new DrFetch(myFetch)
-    .withParser(...) // Optional parsers
-    .withParser(...)
+    .withProcessor(...) // Optional processors
+    .withProcessor(...)
     .for<400, BadRequestBody>()
     ;
 ```
 
 You can now consume this root fetcher object and it will be pre-typed for the `400` status code.
 
-### Specializing the Root Parser
+### Specializing the Root Fetcher
 
-Ok, nice, but what if we needed a custom parser for just one particular URL?  It makes no sense to add it to the root 
-fetcher, and maybe it is even harmful to do so.  In that case, clone the fetcher.
+Ok, nice, but what if we needed a custom processor for just one particular URL?  It makes no sense to add it to the 
+root fetcher, and maybe it is even harmful to do so.  In that case, clone the fetcher.
 
-Cloning a fetcher produces a new fetcher with the same data-fetching function, the same body parsers and the same body 
-typings, **unless** we specify we want something different, like not cloning the body types, or specifying a new 
+Cloning a fetcher produces a new fetcher with the same data-fetching function, the same body processors and the same 
+body typings, **unless** we specify we want something different, like not cloning the body types, or specifying a new 
 data-fetching function.
 
 ```typescript
-import rootFecher from "./root-fetcher.js";
+import rootFetcher from "./root-fetcher.js";
 
 function specialFetch(url: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) {
     ...
 }
 
-const localFetcher = rootFetcher.clone(true); // Same data-fetching function, body parsers and body typing.
-const localFetcher = rootFetcher.clone(false); // Same data-fetching function and body parsers.  No body typing.
+const localFetcher = rootFetcher.clone(true); // Same data-fetching function, body processors and body typing.
+const localFetcher = rootFetcher.clone(false); // Same data-fetching function and body processors.  No body typing.
 const localFetcher = rootFetcher.clone(true, { fetchFn: specialFetch }); // Different data-fetching function.
-const localFetcher = rootFetcher.clone(true, { includeParsers: false }); // No custom body parsers.
-const localFetcher = rootFetcher.clone(true, { fetchFn: false }); // Identical parsers and body typing, stock fetch().
+const localFetcher = rootFetcher.clone(true, { includeProcessors: false }); // No custom body processors.
+const localFetcher = rootFetcher.clone(true, { fetchFn: false }); // Identical processors and body typing, stock fetch().
 ```
 
 > **IMPORTANT**:  The first parameter to the `clone` function cannot be a variable.  It is just used as a TypeScript 
@@ -314,13 +315,13 @@ expect([...makeIterableHeaders(myHeaders)].length).to.equal(2);
 ## Usage Without TypeScript (JavaScript Projects)
 
 Why are you a weird fellow/gal?  Anyway, prejudice aside, body typing will mean nothing to you, so forget about `for()` 
-and anything else regarding types.  Do your custom data-fetching function, add your custom body parsers and fetch away 
-using `.fetch()`, `.get()`, `head()`, `.post()`, `.put()`, `.patch()` or `.delete()`.
+and anything else regarding types.  Do your custom data-fetching function, add your custom body processors and fetch 
+away using `.fetch()`, `.get()`, `head()`, `.post()`, `.put()`, `.patch()` or `.delete()`.
 
 ## Plug-ins?  Fancy Stuff?
 
 Indeed, we can have fancy stuff.  As demonstration, this section will show you how one can add download progress with 
-a simple class and a custom body parser.
+a simple class and a custom body processor.
 
 The following is a class for **Svelte v5**.  It contains a reactive `progress` property that is updated as download 
 progresses.
@@ -358,14 +359,14 @@ example merely cares about illustrating the mechanism of how you can post-proces
 
 ### How To Use
 
-Create a custom parser for the content type that will be received, for example, `video/mp4` for MP4 video files.
+Create a custom processor for the content type that will be received, for example, `video/mp4` for MP4 video files.
 
 ```ts
 // downloader.ts
 import { DownloadProgress } from './DownloadProgress.svelte.js';
 
 export default new DrFetch(/* custom fetch function here, if needed */)
-    .withParser('video/mp4', (r) => Promise.resolve(new DownloadProgress(r)))
+    .withProcessor('video/mp4', (r) => Promise.resolve(new DownloadProgress(r)))
     ;
 ```
 
@@ -395,6 +396,6 @@ carry the class instance in the `body` property.
 
 ```
 
-When the button is clicked, the download is started.  The custom parser simply creates the new instance of the 
+When the button is clicked, the download is started.  The custom processor simply creates the new instance of the 
 `DownloadProgress` class.  Svelte's reactivity system takes care of the rest, effectively bringing the progress element 
 to life as the download progresses.

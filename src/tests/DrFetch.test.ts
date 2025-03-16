@@ -21,41 +21,41 @@ describe('DrFetch', () => {
         [
             {
                 newFetchFn: false,
-                includeParsers: false,
-                text: 'the same data-fetching function and no parsers',
+                includeProcessors: false,
+                text: 'the same data-fetching function and no processors',
             },
             {
                 newFetchFn: true,
-                includeParsers: false,
-                text: 'a new data-fetching function and no parsers',
+                includeProcessors: false,
+                text: 'a new data-fetching function and no processors',
             },
             {
                 newFetchFn: false,
-                includeParsers: true,
-                text: 'the same data-fetching function and identical parsers',
+                includeProcessors: true,
+                text: 'the same data-fetching function and identical processors',
             },
             {
                 newFetchFn: true,
-                includeParsers: true,
-                text: 'a new data-fetching function and identical parsers',
+                includeProcessors: true,
+                text: 'a new data-fetching function and identical processors',
             },
         ].forEach(tc => {
             test(`Should create a new fetcher object with ${tc.text}.`, async () => {
                 // Arrange.
                 const contentType = 'text/plain';
                 const origFetchFn = fake.resolves(new Response('Hi!', { headers: { 'content-type': contentType } }));
-                const customParserFn = fake();
+                const customProcessorFn = fake();
                 const origFetcher = new DrFetch(origFetchFn);
-                origFetcher.withParser(contentType, customParserFn);
+                origFetcher.withProcessor(contentType, customProcessorFn);
                 const newFetchFn = fake.resolves(new Response('Hi!', { headers: { 'content-type': contentType } }));
 
                 // Act.
-                const cloned = origFetcher.clone(true, { fetchFn: tc.newFetchFn ? newFetchFn : undefined, includeParsers: tc.includeParsers });
+                const cloned = origFetcher.clone(true, { fetchFn: tc.newFetchFn ? newFetchFn : undefined, includeProcessors: tc.includeProcessors });
 
                 // Assert.
                 await cloned.fetch('x');
                 expect(newFetchFn.called).to.equal(tc.newFetchFn);
-                expect(customParserFn.called).to.equal(tc.includeParsers);
+                expect(customProcessorFn.called).to.equal(tc.includeProcessors);
             });
         });
         test("Should create a clone that uses the standard fetch() function when 'opitons.fetchFn' is 'false'.", async () => {
@@ -146,7 +146,7 @@ describe('DrFetch', () => {
             body: typeof x.body === 'string' ? x.body : JSON.stringify(x.body),
             testBody: x.body,
         })).forEach(tc => {
-            test(`Should parse the body using the stock body parsers when content type is "${tc.contentType}".`, async () => {
+            test(`Should parse the body using the stock body processors when content type is "${tc.contentType}".`, async () => {
                 // Arrange.
                 const fetchFn = fake.resolves(new Response(tc.body, { headers: { 'content-type': tc.contentType } }));
                 const fetcher = new DrFetch(fetchFn);
@@ -193,7 +193,7 @@ describe('DrFetch', () => {
             // Assert.
             expect(didThrow).to.be.true;
         });
-        test("Should throw an error if the content type is unknown by the built-in parsers and custom parsers.", async () => {
+        test("Should throw an error if the content type is unknown by the built-in and custom processors.", async () => {
             // Arrange.
             const fetchFn = fake.resolves(new Response('x', { headers: { 'content-type': 'application/xml' } }));
             const fetcher = new DrFetch(fetchFn);
@@ -243,18 +243,18 @@ describe('DrFetch', () => {
             }
             return expanded;
         }).forEach(tc => {
-            test(`Should use the provided custom parser with ${tc.patternType} pattern "${tc.pattern.toString()}" for content type "${tc.contentType}".`, async () => {
+            test(`Should use the provided custom processor with ${tc.patternType} pattern "${tc.pattern.toString()}" for content type "${tc.contentType}".`, async () => {
                 // Arrange.
-                const parserFn = fake();
+                const processorFn = fake();
                 const fetchFn = fake.resolves(new Response('x', { headers: { 'content-type': tc.contentType } }));
                 const fetcher = new DrFetch(fetchFn);
-                fetcher.withParser(tc.pattern, parserFn);
+                fetcher.withProcessor(tc.pattern, processorFn);
 
                 // Act.
                 await fetcher.fetch('x');
 
                 // Assert.
-                expect(parserFn.calledOnce).to.be.true;
+                expect(processorFn.calledOnce).to.be.true;
             });
         })
     });

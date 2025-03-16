@@ -1,4 +1,4 @@
-import type { FetchResult, StatusCode } from "./types.js";
+import type { BodyParserFn, FetchResult, StatusCode } from "./types.js";
 
 /**
  * List of patterns to match against the content-type response header.  If there's a match, the response is treated as 
@@ -30,6 +30,14 @@ function isPojo(obj: unknown): obj is Record<string, any> {
         return true;
     }
     return proto === Object.prototype;
+}
+
+function jsonParser(response: Response) {
+    return response.json();
+}
+
+function textParser(response: Response) {
+    return response.text();
 }
 
 /**
@@ -90,7 +98,7 @@ function isPojo(obj: unknown): obj is Record<string, any> {
  * ## When to Create a New Fetcher
  * 
  * Create a new fetcher when your current one needs a different data-fetching function or a different set of custom 
- * parsers.
+ * processors.
  * 
  * A new fetcher object may be created by creating it from scratch using the class constructor, or by cloning an 
  * existing one using the parent's `clone` function.  When cloning, pass a new data-fetching function (if required) so 
@@ -98,7 +106,7 @@ function isPojo(obj: unknown): obj is Record<string, any> {
  */
 export class DrFetch<T = unknown> {
     #fetchFn: typeof fetch;
-    #customParsers: [string | RegExp, (response: Response) => Promise<any>][] = [];
+    #customProcessors: [string | RegExp, (response: Response, stockParsers: { json: BodyParserFn<any>; text: BodyParserFn<string>; }) => Promise<any>][] = [];
 
     /**
      * Initializes a new instance of this class.
@@ -126,8 +134,8 @@ export class DrFetch<T = unknown> {
      * const fetcher = new DrFetch(myCustomFetch);
      * ```
      * 
-     * If you need to do special parsing of the body, don't do post-interception and instead use the `withParser` 
-     * function to register a custom body parser.
+     * If you need to do special processing of the body, don't do post-interception and instead use the `withProcessor` 
+     * function to register a custom body processor.
      * @param fetchFn Optional data-fetching function to use instead of the stock `fetch` function.
      */
     constructor(fetchFn?: typeof fetch) {
@@ -136,7 +144,7 @@ export class DrFetch<T = unknown> {
 
     /**
      * Clones this fetcher object by creating a new fetcher object with the same data-fetching function, custom 
-     * parsers, and data typing unless specified otherwise via the options parameter.
+     * body processors, and data typing unless specified otherwise via the options parameter.
      * @param inheritTyping Determines if the clone inherits the parent's typings.
      * @param options Optional options to control which features are cloned.
      * @returns A new fetcher object that complies with the supplied (or if not supplied, the default) options.
@@ -148,37 +156,40 @@ export class DrFetch<T = unknown> {
          */
         fetchFn?: typeof fetch | false;
         /**
-         * Determines if parsers are included in the clone.  The default is `true`.
+         * Determines if processors are included in the clone.  The default is `true`.
          */
-        includeParsers?: boolean;
+        includeProcessors?: boolean;
     }): TInherit extends true ? DrFetch<T> : DrFetch {
         const newClone = new DrFetch(options?.fetchFn === false ? undefined : options?.fetchFn ?? this.#fetchFn);
-        if (options?.includeParsers ?? true) {
-            newClone.#customParsers = [...this.#customParsers];
+        if (options?.includeProcessors ?? true) {
+            newClone.#customProcessors = [...this.#customProcessors];
         }
         return newClone as DrFetch<T>;
     }
 
     /**
-     * Adds a custom parser to the fetcher object.
+     * Adds a custom processor to the fetcher object.
      * 
-     * The custom parser will be used if the value of the `"content-type"` header satisfies the given pattern.  The 
-     * pattern can be a string or regular expression, and when a string is used, the parser will qualify if the pattern 
-     * is found inside the HTTP header's value.
-     * @param pattern String or regular expression used to test the value of the `"content-type"` HTTP response header.
-     * @param parserFn Custom parser function that is give the HTTP response object and is responsible to return the 
-     * body.
+     * The custom processor will be used if the value of the `"content-type"` header satisfies the given pattern.  The 
+     * pattern can be a string or regular expression, and when a string is used, the processor will qualify if the 
+     * pattern is found inside the `Content-Type` HTTP header's value.
+     * @param pattern String or regular expression used to test the value of the `Content-Type` HTTP response header.
+     * @param processorFn Custom processor function that is given the HTTP response object and the stock body processors, 
+     * and is responsible to return the body.
      * @returns The current fetcher object to enable fluent syntax.
      */
-    withParser(pattern: string | RegExp, parserFn: (response: Response) => Promise<any>) {
-        this.#customParsers.push([pattern, parserFn]);
+    withProcessor(
+        pattern: string | RegExp,
+        processorFn: (response: Response, stockParsers: { json: BodyParserFn<any>; text: BodyParserFn<string>; }) => Promise<any>
+    ) {
+        this.#customProcessors.push([pattern, processorFn]);
         return this;
     }
 
     /**
      * Alters this fetcher's response type by associating the given body type to the given status code type, which can 
      * be a single status code, or multiple status codes.
-     * @returns This parser object with its response type modified to include the body specification provided.
+     * @returns This fetcher object with its response type modified to include the body specification provided.
      */
     for<TStatus extends StatusCode, TBody = {}>(): DrFetch<FetchResult<T, TStatus, TBody>> {
         return this as DrFetch<FetchResult<T, TStatus, TBody>>;
@@ -213,21 +224,24 @@ export class DrFetch<T = unknown> {
         if (!contentType) {
             throw new Error('The response carries no content type header.  Cannot determine how to parse.');
         }
-        // Custom parsers have the highest priority.
-        if (this.#customParsers.length) {
-            for (let [pattern, parserFn] of this.#customParsers) {
+        // Custom processors have the highest priority.
+        if (this.#customProcessors.length) {
+            for (let [pattern, processorFn] of this.#customProcessors) {
                 if (this.#contentMatchesType(contentType, pattern)) {
-                    return await parserFn(response);
+                    return await processorFn(response, {
+                        json: jsonParser,
+                        text: textParser,
+                    });
                 }
             }
         }
         if (this.#contentMatchesType(contentType, jsonTypes)) {
-            return await response.json();
+            return await jsonParser(response);
         }
         else if (this.#contentMatchesType(contentType, textTypes)) {
-            return await response.text();
+            return await textParser(response);
         }
-        throw new Error(`Could not determine how to parse body of type "${contentType}".  Provide a custom parser by calling 'withParser()'.`);
+        throw new Error(`Could not determine how to process body of type "${contentType}".  Provide a custom processor by calling 'withProcessor()'.`);
     }
 
     /**
