@@ -40,9 +40,9 @@ do is to add the `authorization` header and the `accept` header to every call.
 ```typescript
 // myFetch.ts
 import { obtainToken } from './magical-auth-stuff.js';
-import { setHeaders } from 'dr-fetch';
+import { setHeaders, type FetchFnUrl, type FetchFnInit } from 'dr-fetch';
 
-export function myFetch(url: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) {
+export function myFetch(url: FetchFnUrl, init?: FetchFnInit) {
     const token = obtainToken();
     // Make sure there's an object where headers can be added:
     init ??= {};
@@ -167,8 +167,9 @@ data-fetching function.
 
 ```typescript
 import rootFetcher from "./root-fetcher.js";
+import type { FetchFnUrl, FetchFnInit } from "dr-fetch";
 
-function specialFetch(url: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) {
+function specialFetch(url: FetchFnUrl, init?: FetchFnInit) {
     ...
 }
 
@@ -230,7 +231,9 @@ multiple values.
 So writing a formal custom fetch **without** `setHeaders()` looks like this:
 
 ```typescript
-export function myFetch(URL: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) {
+import type { FetchFnUrl, FetchFnInit } from "dr-fetch";
+
+export function myFetch(URL: FetchFnUrl, init?: FetchFnInit) {
     const acceptHdrKey = 'Accept';
     const acceptHdrValue = 'application/json';
     init ??= {};
@@ -253,7 +256,9 @@ export function myFetch(URL: Parameters<typeof fetch>[0], init?: Parameters<type
 This would also get more complex if you account for multi-value headers.  Now the same thing, using `setHeaders()`:
 
 ```typescript
-export function myFetch(URL: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) {
+import type { FetchFnUrl, FetchFnInit } from "dr-fetch";
+
+export function myFetch(URL: FetchFnUrl, init?: FetchFnInit) {
     init ??= {};
     setHeaders(init, [['Accept', 'application/json']]);
     // OR:
