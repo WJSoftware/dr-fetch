@@ -1,4 +1,4 @@
-import type { BodyParserFn, FetchResult, StatusCode } from "./types.js";
+import type { BodyParserFn, FetchFn, FetchFnInit, FetchFnUrl, FetchResult, StatusCode } from "./types.js";
 
 /**
  * List of patterns to match against the content-type response header.  If there's a match, the response is treated as 
@@ -105,7 +105,7 @@ function textParser(response: Response) {
  * the clone uses this one instead of the one of the parent fetcher.
  */
 export class DrFetch<T = unknown> {
-    #fetchFn: typeof fetch;
+    #fetchFn: FetchFn;
     #customProcessors: [string | RegExp, (response: Response, stockParsers: { json: BodyParserFn<any>; text: BodyParserFn<string>; }) => Promise<any>][] = [];
 
     /**
@@ -117,28 +117,32 @@ export class DrFetch<T = unknown> {
      * 
      * @example
      * ```typescript
-     * async function myCustomFetch(url: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) {
+     * import { setHeaders, type FetchFnUrl, type FetchFnInit } from "dr-fetch";
+     * 
+     * async function myCustomFetch(url: FetchFnUrl, init?: FetchFnInit) {
      *     // Code before fetching is the equivalent of pre-fetch interception.
      *     const myToken = getMyToken();
-     *     // WARNING: Naive implementation:  It assumes that headers are always given as a POJO object, but fetch() 
-     *     // accepts other forms.  BEWARE.
-     *     init = init ?? { headers: {} };
-     *     init.headers['Authorization'] = `Bearer ${myToken}`;
+     *     init = init ?? { };
+     *     setHeaders(init, {
+     *         Authorization: `Bearer ${myToken}`,
+     *         Accept: 'application/json',
+     *     });
      *     const response = await fetch(url, init);
      *     // Code after obtaining the response is the equivalent of post-fetch interception.
+     *     // Post-fetch interception is usually unneeded.  Use custom processors instead.
      *     ...
      *     return response;
      * }
      * 
-     * // Create the class now.
-     * const fetcher = new DrFetch(myCustomFetch);
+     * // Create fetcher instance now, and usually you export it.
+     * export default new DrFetch(myCustomFetch);
      * ```
      * 
      * If you need to do special processing of the body, don't do post-interception and instead use the `withProcessor` 
      * function to register a custom body processor.
      * @param fetchFn Optional data-fetching function to use instead of the stock `fetch` function.
      */
-    constructor(fetchFn?: typeof fetch) {
+    constructor(fetchFn?: FetchFn) {
         this.#fetchFn = fetchFn ?? fetch.bind(globalThis.window || global);
     }
 
@@ -154,7 +158,7 @@ export class DrFetch<T = unknown> {
          * Data-fetching function for the clone.  Pass `false` if you want the clone to use the standard `fetch()` 
          * function.
          */
-        fetchFn?: typeof fetch | false;
+        fetchFn?: FetchFn | false;
         /**
          * Determines if processors are included in the clone.  The default is `true`.
          */
@@ -251,7 +255,7 @@ export class DrFetch<T = unknown> {
      * @param init Options for the data-fetching function.
      * @returns A response object with the HTTP response's `ok`, `status`, `statusText` and `body` properties.
      */
-    async fetch(url: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) {
+    async fetch(url: FetchFnUrl, init?: FetchFnInit) {
         const response = await this.#fetchFn(url, init);
         const body = await this.#readBody(response);
         return {

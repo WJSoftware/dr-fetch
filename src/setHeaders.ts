@@ -1,3 +1,5 @@
+import type { FetchFnInit } from "./types.js";
+
 /**
  * Defines all the possible data constructs that can be used to set HTTP headers in an 'init' configuration object.
  */
@@ -111,7 +113,7 @@ function setPojoHeaders(headers: Record<string, string>, newHeaders: HeaderInput
  * @param init The `init` object that will receive the specified headers.
  * @param headers The collection of headers to include in the `init` object.
  */
-export function setHeaders(init: Exclude<Parameters<typeof fetch>[1], undefined>, headers: HeaderInput) {
+export function setHeaders(init: Exclude<FetchFnInit, undefined>, headers: HeaderInput) {
     if (!init) {
         throw new Error("The 'init' argument cannot be undefined.");
     }

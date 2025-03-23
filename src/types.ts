@@ -45,3 +45,18 @@ type CoreFetchResult<TStatus extends StatusCode, TBody> = {
  */
 export type FetchResult<T, TStatus extends StatusCode, TBody = undefined> =
     (unknown extends T ? CoreFetchResult<TStatus, TBody> : T | CoreFetchResult<TStatus, TBody>) extends infer R ? R : never;
+
+/**
+ * Type of the stock fetch function.
+ */
+export type FetchFn = typeof fetch;
+
+/**
+ * Type of the fetch function's URL parameter.
+ */
+export type FetchFnUrl = Parameters<FetchFn>[0];
+
+/**
+ * Type of the fetch function's init parameter.
+ */
+export type FetchFnInit = Parameters<FetchFn>[1];
