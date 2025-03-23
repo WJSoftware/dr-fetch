@@ -7,16 +7,17 @@ This package:
 + Uses the modern, standardized `fetch` function.
 + Does **not** throw on non-OK HTTP responses.
 + **Allows to fully type all possible HTTP responses depending on the HTTP status code.**
++ Probably the tiniest fetch wrapper you'll ever need.
 
 ## Does a Non-OK Status Code Warrant an Error?
 
-No.  Non-OK status codes may communicate things like validation errors, which usually requires that the application 
-*informs* the user about which piece of data is wrong.  Why should this logic be inside a `catch` block?  The fact is,
-`try..catch` would be there as a replacement of branching (using  `if` or `switch`).  This is a very smelly code smell.
+The short story is:
 
-The second reason is that in most runtimes, unwinding the call stack is costly.  Why should we pay a price in 
-performance just to include the code smell of using `try..catch` as a branching statement?  There is no reason to do 
-such thing.
+1. Wrappers like `axios` or `ky` do `if (!response.ok) throw ...`, which forces code to `try..catch`.  This is a code 
+smell:  `try..catch` is being used as a branching mechanism.
+2. The performance drop is huge.  [See this benchmark](https://jsperf.app/dogeco).  Over 40% loss.
+
+[The issue of fetch wrappers explained in more detail](https://webjose.hashnode.dev/the-ugly-truth-all-popular-fetch-wrappers-do-it-wrong)
 
 ## Quickstart
 
@@ -39,8 +40,8 @@ do is to add the `authorization` header and the `accept` header to every call.
 
 ```typescript
 // myFetch.ts
-import { obtainToken } from './magical-auth-stuff.js';
-import { setHeaders, type FetchFnUrl, type FetchFnInit } from 'dr-fetch';
+import { obtainToken } from "./magical-auth-stuff.js";
+import { setHeaders, type FetchFnUrl, type FetchFnInit } from "dr-fetch";
 
 export function myFetch(url: FetchFnUrl, init?: FetchFnInit) {
     const token = obtainToken();
@@ -48,7 +49,7 @@ export function myFetch(url: FetchFnUrl, init?: FetchFnInit) {
     init ??= {};
     // With setHeaders(), you can add headers to 'init' with a map, an array of tuples, a Headers 
     // object or a POJO object.
-    setHeaders(init, { 'Accept': 'application/json', 'Authorization': `Bearer ${token}`});
+    setHeaders(init, { Accept: 'application/json', Authorization: `Bearer ${token}`});
     // Finally, do fetch.
     return fetch(url, init);
 }
@@ -95,7 +96,8 @@ export default new DrFetch(myFetch)
     ;
 ```
 
-> **NOTE**: The content type can also be matched passing a regular expression instead of a string.
+> [!NOTE]
+> The content type can also be matched passing a regular expression instead of a string.
 
 Now the fetcher object is ready for use.
 
@@ -105,7 +107,7 @@ This is the fun part where we can enumerate the various shapes of the body depen
 
 ```typescript
 import type { MyData } from "./my-datatypes.js";
-import fetcher from './fetcher.js';
+import fetcher from "./fetcher.js";
 
 const response = await fetcher
     .for<200, MyData[]>()
@@ -173,15 +175,21 @@ function specialFetch(url: FetchFnUrl, init?: FetchFnInit) {
     ...
 }
 
-const localFetcher = rootFetcher.clone(true); // Same data-fetching function, body processors and body typing.
-const localFetcher = rootFetcher.clone(false); // Same data-fetching function and body processors.  No body typing.
-const localFetcher = rootFetcher.clone(true, { fetchFn: specialFetch }); // Different data-fetching function.
-const localFetcher = rootFetcher.clone(true, { includeProcessors: false }); // No custom body processors.
-const localFetcher = rootFetcher.clone(true, { fetchFn: false }); // Identical processors and body typing, stock fetch().
+// Same data-fetching function, body processors and body typing.
+const specialFetcher = rootFetcher.clone(true);
+// Same data-fetching function and body processors.  No body typing.
+const specialFetcher = rootFetcher.clone(false);
+// Different data-fetching function.
+const specialFetcher = rootFetcher.clone(true, { fetchFn: specialFetch });
+// No custom body processors.
+const specialFetcher = rootFetcher.clone(true, { includeProcessors: false });
+// Identical processors and body typing, stock fetch().
+const specialFetcher = rootFetcher.clone(true, { fetchFn: false });
 ```
 
-> **IMPORTANT**:  The first parameter to the `clone` function cannot be a variable.  It is just used as a TypeScript 
-> trick to reset the body typing.  The value itself means nothing in runtime because types are not a runtime thing.
+> [!IMPORTANT]
+> The first parameter to the `clone` function cannot be a variable.  It is just used as a TypeScript trick to reset the 
+> body typing.  The value itself means nothing in runtime because types are not a runtime thing.
 
 ## Shortcut Functions
 
@@ -194,7 +202,7 @@ the `Content-Type` header is given the value `application/json`.  If a body of a
 `fetch()` (or the custom data-fetching function you provide) does in these cases.
 
 ```typescript
-import type { Todo } from './myTypes.js';
+import type { Todo } from "./myTypes.js";
 
 const newTodo = { text: 'I am new.  Insert me!' };
 const response = await fetcher
@@ -253,7 +261,9 @@ export function myFetch(URL: FetchFnUrl, init?: FetchFnInit) {
 }
 ```
 
-This would also get more complex if you account for multi-value headers.  Now the same thing, using `setHeaders()`:
+This would also get more complex if you account for multi-value headers.
+
+Now the same thing, using `setHeaders()`:
 
 ```typescript
 import type { FetchFnUrl, FetchFnInit } from "dr-fetch";
@@ -271,8 +281,8 @@ export function myFetch(URL: FetchFnUrl, init?: FetchFnInit) {
 }
 ```
 
-The difference is indeed pretty shocking.  Also note that adding arrays of values doesn't increase the complexity of 
-the code.
+The difference is indeed pretty shocking:  One line of code and you are done.  Also note that adding arrays of values 
+doesn't increase the complexity of the code:  It's still one line.
 
 ### makeIterableHeaders
 
@@ -300,7 +310,7 @@ const myHeaders4 = [
     ['Authorization', 'Bearer x'],
 ];
 
-// The output of these is identical.
+// The output of all these is identical.
 console.log([...makeIterableHeaders(myHeaders1)]);
 console.log([...makeIterableHeaders(myHeaders2)]);
 console.log([...makeIterableHeaders(myHeaders3)]);
@@ -330,6 +340,8 @@ a simple class and a custom body processor.
 
 The following is a class for **Svelte v5**.  It contains a reactive `progress` property that is updated as download 
 progresses.
+
+[Live demo in the Svelte REPL](https://svelte.dev/playground/ddeedfb44ab74727ac40df320c552b92?version=5.25.3)
 
 > [!NOTE]
 > You should have no problems translating this to Vue, SolidJS or even Angular since all these are signal-powered.
@@ -368,7 +380,7 @@ Create a custom processor for the content type that will be received, for exampl
 
 ```ts
 // downloader.ts
-import { DownloadProgress } from './DownloadProgress.svelte.js';
+import { DownloadProgress } from "./DownloadProgress.svelte.js";
 
 export default new DrFetch(/* custom fetch function here, if needed */)
     .withProcessor('video/mp4', (r) => Promise.resolve(new DownloadProgress(r)))
@@ -380,8 +392,8 @@ carry the class instance in the `body` property.
 
 ```svelte
 <script lang="ts">
-    import { DownloadProgress } from './DownloadProgress.svelte.js';
-    import downloader from './downloader.js';
+    import { DownloadProgress } from "./DownloadProgress.svelte.js";
+    import downloader from "./downloader.js";
 
 	let download = $state<Download>();
 
