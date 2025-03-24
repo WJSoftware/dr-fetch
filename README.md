@@ -395,19 +395,20 @@ carry the class instance in the `body` property.
     import { DownloadProgress } from "./DownloadProgress.svelte.js";
     import downloader from "./downloader.js";
 
-	let download = $state<Download>();
+    let download = $state<Download>();
 
-	async function startDownload() {
-		download = (await downloader
+    async function startDownload() {
+        download = (await downloader
             .for<200, DownloadProgress>()
-            .get('https://example.com/my-video.mp4'))
-            .body
-            ;
+            .get('https://example.com/my-video.mp4')
+        )
+        .body
+        ;
 	}
 </script>
 
 <button type="button" onclick={startDownload}>
-	Start Download
+    Start Download
 </button>
 <progress value={download?.progress ?? 0}></progress>
 
