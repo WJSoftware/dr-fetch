@@ -104,7 +104,7 @@ function textParser(response: Response) {
  * existing one using the parent's `clone` function.  When cloning, pass a new data-fetching function (if required) so 
  * the clone uses this one instead of the one of the parent fetcher.
  */
-export class DrFetch<T = unknown> {
+export class DrFetch<TStatusCode extends number = StatusCode, T = unknown> {
     #fetchFn: FetchFn;
     #customProcessors: [string | RegExp, (response: Response, stockParsers: { json: BodyParserFn<any>; text: BodyParserFn<string>; }) => Promise<any>][] = [];
 
@@ -163,12 +163,12 @@ export class DrFetch<T = unknown> {
          * Determines if processors are included in the clone.  The default is `true`.
          */
         includeProcessors?: boolean;
-    }): TInherit extends true ? DrFetch<T> : DrFetch {
+    }): TInherit extends true ? DrFetch<TStatusCode, T> : DrFetch {
         const newClone = new DrFetch(options?.fetchFn === false ? undefined : options?.fetchFn ?? this.#fetchFn);
         if (options?.includeProcessors ?? true) {
             newClone.#customProcessors = [...this.#customProcessors];
         }
-        return newClone as DrFetch<T>;
+        return newClone as DrFetch<TStatusCode, T>;
     }
 
     /**
@@ -195,11 +195,9 @@ export class DrFetch<T = unknown> {
      * be a single status code, or multiple status codes.
      * @returns This fetcher object with its response type modified to include the body specification provided.
      */
-    for<TStatus extends StatusCode, TBody = {}>(): DrFetch<FetchResult<T, TStatus, TBody>> {
-        return this as DrFetch<FetchResult<T, TStatus, TBody>>;
+    for<TStatus extends TStatusCode, TBody = {}>(): DrFetch<TStatusCode, FetchResult<T, TStatus, TBody>> {
+        return this as DrFetch<TStatusCode, FetchResult<T, TStatus, TBody>>;
     }
-
-    // notFor<TStatus extends StatusCode>(status: TStatus)
 
     #contentMatchesType(contentType: string, types: (string | RegExp) | (string | RegExp)[]) {
         if (!Array.isArray(types)) {
@@ -251,7 +249,7 @@ export class DrFetch<T = unknown> {
     /**
      * Fetches the specified URL using the specified options and returns information contained within the HTTP response 
      * object.
-     * @param url URL paramter for the data-fetching function.
+     * @param url URL parameter for the data-fetching function.
      * @param init Options for the data-fetching function.
      * @returns A response object with the HTTP response's `ok`, `status`, `statusText` and `body` properties.
      */

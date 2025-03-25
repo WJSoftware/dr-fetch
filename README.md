@@ -1,12 +1,14 @@
 # dr-fetch
 
-This is one more package for fetching.  The difference with other packages is that this one does it right.
+This is not just one more wrapper for `fetch()`:  This package promotes the idea of using customized data-fetching 
+functions, which is the most maintainable option, and adds features no other wrapper provides to date.
 
 This package:
 
 + Uses the modern, standardized `fetch` function.
 + Does **not** throw on non-OK HTTP responses.
-+ **Allows to fully type all possible HTTP responses depending on the HTTP status code.**
++ **Can fully type all possible HTTP responses depending on the HTTP status code, even non-standard ones like 499.**
++ Works in any runtime that implements `fetch()` (browsers, NodeJS, etc.).
 + Probably the tiniest fetch wrapper you'll ever need.
 
 ## Does a Non-OK Status Code Warrant an Error?
@@ -33,7 +35,7 @@ smell:  `try..catch` is being used as a branching mechanism.
 npm i dr-fetch
 ```
 
-### Create Custom Fetch Function
+### Create a Custom Fetch Function
 
 This is optional and only needed if you need to do something before or after fetching.  By far the most common task to 
 do is to add the `authorization` header and the `accept` header to every call.
@@ -47,10 +49,7 @@ export function myFetch(url: FetchFnUrl, init?: FetchFnInit) {
     const token = obtainToken();
     // Make sure there's an object where headers can be added:
     init ??= {};
-    // With setHeaders(), you can add headers to 'init' with a map, an array of tuples, a Headers 
-    // object or a POJO object.
     setHeaders(init, { Accept: 'application/json', Authorization: `Bearer ${token}`});
-    // Finally, do fetch.
     return fetch(url, init);
 }
 ```
@@ -137,11 +136,29 @@ else {
 }
 ```
 
+## Typing For Non-Standard Status Codes
+
+> Since **v0.8.0**
+
+This library currently supports, out of the box, the OK status codes, client error status codes and server error status 
+codes that the MDN website list, and are therefore considered standardized.
+
+If you need to type a response based on any other status code not currently supported, just do something like this:
+
+```typescript
+import { DrFetch, type StatusCode } from "dr-fetch";
+
+type MyStatusCode = StatusCode | 499;
+export default new DrFetch<MyStatusCode>();
+```
+
+You will now be able to use non-standardized status code `499` to type the response body with `DrFetch.for<>()`.
+
 ## Smarter Uses
 
 It is smart to create just one fetcher, configure it, then use it for every fetch call.  Because generally speaking, 
-different URL's will carry a different body type, the fetcher object should be kept free of `for<>()` calls.  However, 
-what if your API is standardized so all status `400` bodies look the same?  Then configure that type:
+different URL's will carry a different body type, the fetcher object should be kept free of `for<>()` calls.  But what 
+if your API is standardized so all status `400` bodies look the same?  Then configure that type:
 
 ```typescript
 // root-fetcher.ts
@@ -226,7 +243,7 @@ end, call it.
 
 These are two helper functions that assist you in writing custom data-fetching functions.
 
-If you haven't realized, the `init` paramter in `fetch()` can have the headers specified in 3 different formats:
+If you haven't realized, the `init` parameter in `fetch()` can have the headers specified in 3 different formats:
 
 + As a `Headers` object (an instance of the `Headers` class)
 + As a POJO object, where the property key is the header name, and the property value is the header value
@@ -261,7 +278,7 @@ export function myFetch(URL: FetchFnUrl, init?: FetchFnInit) {
 }
 ```
 
-This would also get more complex if you account for multi-value headers.
+This would also get more complex if you account for multi-value headers.  The bottom line is:  This is complex.
 
 Now the same thing, using `setHeaders()`:
 
@@ -280,6 +297,9 @@ export function myFetch(URL: FetchFnUrl, init?: FetchFnInit) {
     return fetch(url, init);
 }
 ```
+> [!NOTE]
+> With `setHeaders()`, you can add headers to 'init' with a map, an array of tuples, a `Headers` instance or a POJO 
+> object.
 
 The difference is indeed pretty shocking:  One line of code and you are done.  Also note that adding arrays of values 
 doesn't increase the complexity of the code:  It's still one line.
@@ -287,7 +307,7 @@ doesn't increase the complexity of the code:  It's still one line.
 ### makeIterableHeaders
 
 This function is the magic trick that powers the `setHeaders` function, and is very handy for troubleshooting or unit 
-testing because it can take a collection of HTTP header specifications in the form of a map, a Headers object, a POJO 
+testing because it can take a collection of HTTP header specifications in the form of a map, a `Headers` object, a POJO 
 object or an array of tuples and return an iterator object that iterates through the definitions in the same way:  A 
 list of tuples.
 
@@ -402,16 +422,14 @@ carry the class instance in the `body` property.
             .for<200, DownloadProgress>()
             .get('https://example.com/my-video.mp4')
         )
-        .body
-        ;
-	}
+        .body;
+    }
 </script>
 
 <button type="button" onclick={startDownload}>
     Start Download
 </button>
 <progress value={download?.progress ?? 0}></progress>
-
 ```
 
 When the button is clicked, the download is started.  The custom processor simply creates the new instance of the 
