@@ -32,7 +32,7 @@ export type BodyParserFn<T> = (response: Response) => Promise<T>;
 /**
  * Type that builds a single status code's response.
  */
-type CoreFetchResult<TStatus extends StatusCode, TBody> = {
+type CoreFetchResult<TStatus extends number, TBody> = {
     ok: TStatus extends OkStatusCode ? true : false;
     status: TStatus;
     statusText: string;
@@ -43,7 +43,7 @@ type CoreFetchResult<TStatus extends StatusCode, TBody> = {
 /**
  * Type that builds DrFetch's final result object's type.
  */
-export type FetchResult<T, TStatus extends StatusCode, TBody = undefined> =
+export type FetchResult<T, TStatus extends number, TBody = undefined> =
     (unknown extends T ? CoreFetchResult<TStatus, TBody> : T | CoreFetchResult<TStatus, TBody>) extends infer R ? R : never;
 
 /**
