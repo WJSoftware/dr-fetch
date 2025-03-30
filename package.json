@@ -18,6 +18,13 @@
     "name": "José Pablo Ramírez Vargas",
     "url": "https://github.com/WJSoftware"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/WJSoftware/dr-fetch.git"
+  },
+  "bugs": {
+    "url": "https://github.com/WJSoftware/dr-fetch/issues"
+  },
   "files": [
     "dist/**/*.js",
     "dist/**/*.d.ts"
