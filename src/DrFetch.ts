@@ -1,4 +1,6 @@
-import type { BodyParserFn, FetchFn, FetchFnInit, FetchFnUrl, FetchResult, StatusCode } from "./types.js";
+import { aborted } from "util";
+import type { BodyParserFn, CloneOptions, FetchFn, FetchFnInit, FetchFnUrl, FetchResult, StatusCode } from "./types.js";
+import { hasHeader, setHeaders } from "./headers.js";
 
 /**
  * List of patterns to match against the content-type response header.  If there's a match, the response is treated as 
@@ -104,9 +106,38 @@ function textParser(response: Response) {
  * existing one using the parent's `clone` function.  When cloning, pass a new data-fetching function (if required) so 
  * the clone uses this one instead of the one of the parent fetcher.
  */
-export class DrFetch<TStatusCode extends number = StatusCode, T = unknown> {
+export class DrFetch<TStatusCode extends number = StatusCode, T = unknown, Abortable extends boolean = false> {
     #fetchFn: FetchFn;
     #customProcessors: [string | RegExp, (response: Response, stockParsers: { json: BodyParserFn<any>; text: BodyParserFn<string>; }) => Promise<any>][] = [];
+    #fetchImpl: Function;
+    #isAbortable: boolean = false;
+
+    async #abortableFetch(url: FetchFnUrl, init?: FetchFnInit) {
+        try {
+            return await this.#simpleFetch(url, init);
+        }
+        catch (err: unknown) {
+            if (err instanceof DOMException && err.name === 'AbortError') {
+                return {
+                    aborted: true,
+                    error: err
+                };
+            }
+            throw err;
+        }
+    }
+
+    async #simpleFetch(url: FetchFnUrl, init?: FetchFnInit) {
+        const response = await this.#fetchFn(url, init);
+        const body = await this.#readBody(response);
+        return {
+            aborted: false,
+            ok: response.ok,
+            status: response.status,
+            statusText: response.statusText,
+            body
+        } as T;
+    }
 
     /**
      * Initializes a new instance of this class.
@@ -144,31 +175,33 @@ export class DrFetch<TStatusCode extends number = StatusCode, T = unknown> {
      */
     constructor(fetchFn?: FetchFn) {
         this.#fetchFn = fetchFn ?? fetch.bind(globalThis.window || global);
+        this.#fetchImpl = this.#simpleFetch.bind(this);
     }
 
     /**
      * Clones this fetcher object by creating a new fetcher object with the same data-fetching function, custom 
      * body processors, and data typing unless specified otherwise via the options parameter.
-     * @param inheritTyping Determines if the clone inherits the parent's typings.
      * @param options Optional options to control which features are cloned.
      * @returns A new fetcher object that complies with the supplied (or if not supplied, the default) options.
      */
-    clone<TInherit extends boolean>(inheritTyping: TInherit, options?: {
-        /**
-         * Data-fetching function for the clone.  Pass `false` if you want the clone to use the standard `fetch()` 
-         * function.
-         */
-        fetchFn?: FetchFn | false;
-        /**
-         * Determines if processors are included in the clone.  The default is `true`.
-         */
-        includeProcessors?: boolean;
-    }): TInherit extends true ? DrFetch<TStatusCode, T> : DrFetch {
-        const newClone = new DrFetch(options?.fetchFn === false ? undefined : options?.fetchFn ?? this.#fetchFn);
-        if (options?.includeProcessors ?? true) {
+    clone<TInherit extends boolean = true, CloneAbortable extends boolean = true>(
+        options?: CloneOptions<TInherit, CloneAbortable>
+    ) {
+        const opts = {
+            fetchFn: undefined,
+            includeProcessors: true,
+            preserveTyping: true,
+            preserveAbortable: true,
+            ...options
+        };
+        const newClone = new DrFetch(opts.fetchFn === false ? undefined : opts?.fetchFn ?? this.#fetchFn);
+        if (opts.includeProcessors) {
             newClone.#customProcessors = [...this.#customProcessors];
         }
-        return newClone as DrFetch<TStatusCode, T>;
+        if (opts.preserveAbortable && this.#isAbortable) {
+            newClone.abortable();
+        }
+        return newClone as DrFetch<TStatusCode, TInherit extends true ? T : unknown, CloneAbortable>;
     }
 
     /**
@@ -195,8 +228,8 @@ export class DrFetch<TStatusCode extends number = StatusCode, T = unknown> {
      * be a single status code, or multiple status codes.
      * @returns This fetcher object with its response type modified to include the body specification provided.
      */
-    for<TStatus extends TStatusCode, TBody = {}>(): DrFetch<TStatusCode, FetchResult<T, TStatus, TBody>> {
-        return this as DrFetch<TStatusCode, FetchResult<T, TStatus, TBody>>;
+    for<TStatus extends TStatusCode, TBody = {}>() {
+        return this as DrFetch<TStatusCode, FetchResult<T, TStatus, TBody>, Abortable>;
     }
 
     #contentMatchesType(contentType: string, types: (string | RegExp) | (string | RegExp)[]) {
@@ -246,6 +279,12 @@ export class DrFetch<TStatusCode extends number = StatusCode, T = unknown> {
         throw new Error(`Could not determine how to process body of type "${contentType}".  Provide a custom processor by calling 'withProcessor()'.`);
     }
 
+    abortable() {
+        this.#fetchImpl = this.#abortableFetch.bind(this);
+        this.#isAbortable = true;
+        return this as DrFetch<TStatusCode, T, true>;
+    }
+
     /**
      * Fetches the specified URL using the specified options and returns information contained within the HTTP response 
      * object.
@@ -253,24 +292,25 @@ export class DrFetch<TStatusCode extends number = StatusCode, T = unknown> {
      * @param init Options for the data-fetching function.
      * @returns A response object with the HTTP response's `ok`, `status`, `statusText` and `body` properties.
      */
-    async fetch(url: FetchFnUrl, init?: FetchFnInit) {
-        const response = await this.#fetchFn(url, init);
-        const body = await this.#readBody(response);
-        return {
-            ok: response.ok,
-            status: response.status,
-            statusText: response.statusText,
-            body
-        } as T;
+    fetch(url: FetchFnUrl, init?: FetchFnInit) {
+        return this.#fetchImpl(url, init) as (Abortable extends true ? Promise<{
+            aborted: true;
+            error: DOMException;
+        } | T> : Promise<T>);
     }
 
-    #processBody(body: BodyInit | null | Record<string, any> | undefined) {
-        let headers: Record<string, string> = {};
+    #createInit(body: BodyInit | null | Record<string, any> | undefined, init?: FetchFnInit) {
+        init ??= {};
+        let headers: [string, string] | undefined;
         if (isPojo(body) || Array.isArray(body)) {
             body = JSON.stringify(body);
-            headers['content-type'] = 'application/json';
+            headers = ['content-type', 'application/json'];
         }
-        return [body as BodyInit | null, headers] as const;
+        if (headers && !hasHeader(init.headers ?? {}, 'content-type')) {
+            setHeaders(init, [headers]);
+        }
+        init.body = body;
+        return init;
     }
 
     /**
@@ -278,8 +318,9 @@ export class DrFetch<TStatusCode extends number = StatusCode, T = unknown> {
      * @param url URL for the fetch function call.
      * @returns A response object with the HTTP response's `ok`, `status`, `statusText` and `body` properties.
      */
-    get(url: URL | string) {
-        return this.fetch(url, { method: 'GET' });
+    get(url: URL | string, init?: Omit<FetchFnInit, 'method' | 'body'>) {
+        init = { ...init, method: 'GET' };
+        return this.fetch(url, init);
     }
 
     /**
@@ -287,8 +328,9 @@ export class DrFetch<TStatusCode extends number = StatusCode, T = unknown> {
      * @param url URL for the fetch function call.
      * @returns A response object with the HTTP response's `ok`, `status`, `statusText` and `body` properties.
      */
-    head(url: URL | string) {
-        return this.fetch(url, { method: 'HEAD' });
+    head(url: URL | string, init?: Omit<FetchFnInit, 'method' | 'body'>) {
+        init = { ...init, method: 'HEAD' };
+        return this.fetch(url, init);
     }
 
     /**
@@ -305,9 +347,10 @@ export class DrFetch<TStatusCode extends number = StatusCode, T = unknown> {
      * does in those cases.
      * @returns A response object with the HTTP response's `ok`, `status`, `statusText` and `body` properties.
      */
-    post(url: URL | string, body?: BodyInit | null | Record<string, any>) {
-        const [pBody, headers] = this.#processBody(body);
-        return this.fetch(url, { method: 'POST', body: pBody, headers });
+    post(url: URL | string, body?: BodyInit | null | Record<string, any>, init?: Omit<FetchFnInit, 'method' | 'body'>) {
+        const fullInit = this.#createInit(body, init);
+        fullInit.method = 'POST';
+        return this.fetch(url, fullInit);
     }
 
     /**
@@ -324,9 +367,10 @@ export class DrFetch<TStatusCode extends number = StatusCode, T = unknown> {
      * does in those cases.
      * @returns A response object with the HTTP response's `ok`, `status`, `statusText` and `body` properties.
      */
-    patch(url: URL | string, body?: BodyInit | null | Record<string, any>) {
-        const [pBody, headers] = this.#processBody(body);
-        return this.fetch(url, { method: 'PATCH', body: pBody, headers });
+    patch(url: URL | string, body?: BodyInit | null | Record<string, any>, init?: Omit<FetchFnInit, 'method' | 'body'>) {
+        const fullInit = this.#createInit(body, init);
+        fullInit.method = 'PATCH';
+        return this.fetch(url, fullInit);
     }
 
     /**
@@ -343,9 +387,10 @@ export class DrFetch<TStatusCode extends number = StatusCode, T = unknown> {
      * does in those cases.
      * @returns A response object with the HTTP response's `ok`, `status`, `statusText` and `body` properties.
      */
-    delete(url: URL | string, body?: BodyInit | null | Record<string, any>) {
-        const [pBody, headers] = this.#processBody(body);
-        return this.fetch(url, { method: 'DELETE', body: pBody, headers });
+    delete(url: URL | string, body?: BodyInit | null | Record<string, any>, init?: Omit<FetchFnInit, 'method' | 'body'>) {
+        const fullInit = this.#createInit(body, init);
+        fullInit.method = 'DELETE';
+        return this.fetch(url, fullInit);
     }
 
     /**
@@ -362,8 +407,9 @@ export class DrFetch<TStatusCode extends number = StatusCode, T = unknown> {
      * does in those cases.
      * @returns A response object with the HTTP response's `ok`, `status`, `statusText` and `body` properties.
      */
-    put(url: URL | string, body?: BodyInit | null | Record<string, any>) {
-        const [pBody, headers] = this.#processBody(body);
-        return this.fetch(url, { method: 'PUT', body: pBody, headers });
+    put(url: URL | string, body?: BodyInit | null | Record<string, any>, init?: Omit<FetchFnInit, 'method' | 'body'>) {
+        const fullInit = this.#createInit(body, init);
+        fullInit.method = 'PUT';
+        return this.fetch(url, fullInit);
     }
 }

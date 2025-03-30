@@ -33,6 +33,7 @@ export type BodyParserFn<T> = (response: Response) => Promise<T>;
  * Type that builds a single status code's response.
  */
 type CoreFetchResult<TStatus extends number, TBody> = {
+    aborted: false;
     ok: TStatus extends OkStatusCode ? true : false;
     status: TStatus;
     statusText: string;
@@ -44,7 +45,11 @@ type CoreFetchResult<TStatus extends number, TBody> = {
  * Type that builds DrFetch's final result object's type.
  */
 export type FetchResult<T, TStatus extends number, TBody = undefined> =
-    (unknown extends T ? CoreFetchResult<TStatus, TBody> : T | CoreFetchResult<TStatus, TBody>) extends infer R ? R : never;
+    (
+        unknown extends T ?
+        CoreFetchResult<TStatus, TBody> :
+        T | CoreFetchResult<TStatus, TBody>
+    ) extends infer R ? R : never;
 
 /**
  * Type of the stock fetch function.
@@ -60,3 +65,28 @@ export type FetchFnUrl = Parameters<FetchFn>[0];
  * Type of the fetch function's init parameter.
  */
 export type FetchFnInit = Parameters<FetchFn>[1];
+
+/**
+ * Fetcher cloning options.
+ */
+export type CloneOptions<BodyTyping extends boolean | undefined, Abortable extends boolean | undefined> = {
+    /**
+     * Determines whether to preserve the body typing of the original fetcher.  The default is `true`.
+     */
+    preserveTyping?: BodyTyping;
+    /**
+     * Defines which data-fetching function the clone will use.
+     * 
+     * Pass `false` if you want the clone to use the standard `fetch()` function, or leave it `undefined` to inherit 
+     * the fetch function of the parent.
+     */
+    fetchFn?: FetchFn | false;
+    /**
+     * Determines if body processors are included in the clone.  The default is `true`.
+     */
+    includeProcessors?: boolean;
+    /**
+     * Defines whether to preserve the abortable state of the original fetcher.  The default is `true`.
+     */
+    preserveAbortable?: Abortable;
+};

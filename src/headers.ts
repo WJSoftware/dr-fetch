@@ -32,7 +32,7 @@ function headersClassGenerator(headers: Headers) {
  * ways to specify headers into to one:  Tuples.  Because it is an iterator, it can:
  * 
  * + Be used in `for..of` statements
- * + Be spreaded using the spred (`...`) operator in arrays and parameters
+ * + Be spread using the spread (`...`) operator in arrays and parameters
  * + Be used in other generators via `yield*`
  * + Be destructured (array destructuring)
  * @param headers The source of the headers to enumerate.
@@ -129,4 +129,34 @@ export function setHeaders(init: Exclude<FetchFnInit, undefined>, headers: Heade
     }
 }
 
-const x = new Headers()
+/**
+ * Tests the given collection of headers to see if the specified header is present.
+ * @param headers The headers to check.
+ * @param header The sought header.  The search is case-insensitive.
+ * @returns `true` if the header is present in the headers, or `false` otherwise.
+ */
+export function hasHeader(headers: HeaderInput, header: string) {
+    const lcHeader = header.toLowerCase();
+    for (let [key] of makeIterableHeaders(headers)) {
+        if (key.toLowerCase() === lcHeader) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * Gets the value of the specified header from the given collection of headers.
+ * @param headers The headers to check.
+ * @param header The sought header.  The search is case-insensitive.
+ * @returns The value of the header, or `undefined` if the header is not present in the headers.
+ */
+export function getHeader(headers: HeaderInput, header: string) {
+    const lcHeader = header.toLowerCase();
+    for (let [key, value] of makeIterableHeaders(headers)) {
+        if (key.toLowerCase() === lcHeader) {
+            return value;
+        }
+    }
+    return undefined;
+}
