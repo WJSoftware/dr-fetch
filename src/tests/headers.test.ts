@@ -1,6 +1,6 @@
 import { expect } from 'chai';
 import { describe, test } from 'mocha';
-import { makeIterableHeaders, setHeaders } from '../setHeaders.js';
+import { getHeader, hasHeader, makeIterableHeaders, setHeaders } from '../headers.js';
 
 describe('setHeaders', () => {
     test("Should throw an error whenever the 'init' argument is undefined.", () => {
@@ -125,7 +125,7 @@ describe('setHeaders', () => {
     const headerKey = 'Accept';
     const headerValues = [
         'application/json',
-        'applicaiton/xml',
+        'application/xml',
     ];
     [
         {
@@ -165,6 +165,152 @@ describe('setHeaders', () => {
             const resultingHeaders = [...makeIterableHeaders(init.headers)];
             expect(resultingHeaders.length).to.equal(1);
             expect(resultingHeaders[0][1]).to.equal(headerValues.join(', '));
+        });
+    });
+});
+
+describe('hasHeader', () => {
+    [
+        {
+            headers: new Map([['Accept', 'application/json']]),
+            text: 'a Map object',
+            header: 'Accept',
+            exists: true,
+        },
+        {
+            headers: new Map([['Accept', 'application/json']]),
+            text: 'a Map object',
+            header: 'Authorization',
+            exists: false,
+        },
+        {
+            headers: new Headers([['Accept', 'application/json']]),
+            text: 'a Headers object',
+            header: 'Accept',
+            exists: true,
+        },
+        {
+            headers: new Headers([['Accept', 'application/json']]),
+            text: 'a Headers object',
+            header: 'Authorization',
+            exists: false,
+        },
+        {
+            headers: { Accept: 'application/json' },
+            text: 'a POJO object',
+            header: 'Accept',
+            exists: true,
+        },
+        {
+            headers: { Accept: 'application/json' },
+            text: 'a POJO object',
+            header: 'Authorization',
+            exists: false,
+        },
+        {
+            headers: [['Accept', 'application/json'] as [string, string]],
+            text: 'an array of tuples',
+            header: 'Accept',
+            exists: true,
+        },
+        {
+            headers: [['Accept', 'application/json'] as [string, string]],
+            text: 'an array of tuples',
+            header: 'Authorization',
+            exists: false,
+        },
+    ].forEach(tc => {
+        test(`Should return ${tc.exists} when checking for the header ${tc.header} in ${tc.text}.`, () => {
+            // Act.
+            const result = hasHeader(tc.headers, tc.header);
+
+            // Assert.
+            expect(result).to.equal(tc.exists);
+        });
+    });
+    ["accept", "ACCEPT", "Accept"].forEach(header => {
+        test(`Should be case-insensitive when searching for the header '${header}'.`, () => {
+            // Arrange.
+            const headers = new Headers([['Accept', 'application/json']]);
+
+            // Act.
+            const result = hasHeader(headers, header);
+
+            // Assert.
+            expect(result).to.be.true;
+        });
+    });
+});
+
+describe('getHeader', () => {
+    [
+        {
+            headers: new Map([['Accept', 'application/json']]),
+            text: 'a Map object',
+            header: 'Accept',
+            expected: 'application/json',
+        },
+        {
+            headers: new Map([['Accept', 'application/json']]),
+            text: 'a Map object',
+            header: 'Authorization',
+            expected: undefined,
+        },
+        {
+            headers: new Headers([['Accept', 'application/json']]),
+            text: 'a Headers object',
+            header: 'Accept',
+            expected: 'application/json',
+        },
+        {
+            headers: new Headers([['Accept', 'application/json']]),
+            text: 'a Headers object',
+            header: 'Authorization',
+            expected: undefined,
+        },
+        {
+            headers: { Accept: 'application/json' },
+            text: 'a POJO object',
+            header: 'Accept',
+            expected: 'application/json',
+        },
+        {
+            headers: { Accept: 'application/json' },
+            text: 'a POJO object',
+            header: 'Authorization',
+            expected: undefined,
+        },
+        {
+            headers: [['Accept', 'application/json'] as [string, string]],
+            text: 'an array of tuples',
+            header: 'Accept',
+            expected: 'application/json',
+        },
+        {
+            headers: [['Accept', 'application/json'] as [string, string]],
+            text: 'an array of tuples',
+            header: 'Authorization',
+            expected: undefined,
+        },
+    ].forEach(tc => {
+        test(`Should return '${tc.expected}' when getting header ${tc.header} from ${tc.text}.`, () => {
+            // Act.
+            const result = getHeader(tc.headers, tc.header);
+
+            // Assert.
+            expect(result).to.equal(tc.expected);
+        });
+    });
+    ["accept", "ACCEPT", "Accept"].forEach(header => {
+        test(`Should be case-insensitive when getting the header '${header}'.`, () => {
+            // Arrange.
+            const headers = new Headers([['Accept', 'application/json']]);
+
+            // Act.
+            const result = getHeader(headers, header);
+
+            // Assert.
+            expect(result).to.equal('application/json');
         });
     });
 });

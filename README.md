@@ -8,6 +8,7 @@ This package:
 + Uses the modern, standardized `fetch` function.
 + Does **not** throw on non-OK HTTP responses.
 + **Can fully type all possible HTTP responses depending on the HTTP status code, even non-standard ones like 499.**
++ **Supports abortable HTTP requests; no boilerplate.**
 + Works in any runtime that implements `fetch()` (browsers, NodeJS, etc.).
 + Probably the tiniest fetch wrapper you'll ever need.
 
@@ -105,7 +106,7 @@ Now the fetcher object is ready for use.
 This is the fun part where we can enumerate the various shapes of the body depending on the HTTP status code:
 
 ```typescript
-import type { MyData } from "./my-datatypes.js";
+import type { MyData } from "./my-types.js";
 import fetcher from "./fetcher.js";
 
 const response = await fetcher
@@ -117,6 +118,7 @@ const response = await fetcher
 
 The object stored in the `response` variable will contain the following properties:
 
++ `aborted`:  Will be `false` (since **v0.8.0**)
 + `ok`:  Same as `Response.ok`.
 + `status`:  Same as `Response.status`.
 + `statusText`:  Same as `Response.statusText`.
@@ -154,6 +156,69 @@ export default new DrFetch<MyStatusCode>();
 
 You will now be able to use non-standardized status code `499` to type the response body with `DrFetch.for<>()`.
 
+## Abortable HTTP Requests
+
+> Since **v0.8.0**
+
+To create abortable HTTP requests, as per the standard, use an `AbortController`.  The following is how you would have 
+to write your code *without* `dr-fetch`:
+
+```typescript
+const ac = new AbortController();
+let aborted = false;
+let response: Response;
+
+try {
+    response = await fetch('/url', { signal: ac.signal });
+}
+catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+        aborted = true;
+    }
+    // Other stuff for non-aborted scenarios.
+}
+if (!aborted) {
+    const body = await response.json();
+    ...
+}
+```
+
+In contrast, using an abortable fetcher from `dr-fetch`, you reduce your code to:
+
+```typescript
+// abortable-fetcher.ts
+import { DrFetch } from "dr-fetch";
+
+export const abortableFetcher = new DrFetch()
+    .abortable();
+```
+
+```typescript
+// some-component.ts
+import { abortableFetcher } from "./abortable-fetcher.js";
+
+const ac = new AbortController();
+
+const response = await abortableFetcher
+    .for<200, MyData[]>(),
+    .for<400, ValidationError[]>()
+    .get('/url', { signal: ac.signal });
+if (!response.aborted) {
+    ...
+}
+```
+
+In short:  All boilerplate is gone.  Your only job is to create the abort controller, pass the signal and after 
+awaiting for the response, you check the value of the `aborted` property.
+
+TypeScript and Intellisense will be fully accurate:  If `response.aborted` is true, then the `response.error` property 
+is available; otherwise the usual `ok`, `status`, `statusText` and `body` properties will be the ones available.
+
+For full details and feedback on this feature, see [this discussion](https://github.com/WJSoftware/dr-fetch/discussions/25).
+
+> [!IMPORTANT]
+> Calling `DrFetch.abortable()` permanently changes the fetcher object's configuration.
+
 ## Smarter Uses
 
 It is smart to create just one fetcher, configure it, then use it for every fetch call.  Because generally speaking, 
@@ -164,7 +229,7 @@ if your API is standardized so all status `400` bodies look the same?  Then conf
 // root-fetcher.ts
 import { DrFetch } from "dr-fetch";
 import { myFetch } from "./my-fetch.js";
-import type { BadRequestBody } from "my-datatypes.js";
+import type { BadRequestBody } from "my-types.js";
 
 export default new DrFetch(myFetch)
     .withProcessor(...) // Optional processors
@@ -175,14 +240,39 @@ export default new DrFetch(myFetch)
 
 You can now consume this root fetcher object and it will be pre-typed for the `400` status code.
 
+### About Abortable Fetchers
+
+> Since **v0.8.0**
+
+If your project has a need for abortable and non-abortable fetcher objects, the smarter option would be to create and 
+export 2 fetcher objects, instead of one root fetcher:
+
+```typescript
+// root-fetchers.ts
+import { DrFetch } from "dr-fetch";
+import { myFetch } from "./my-fetch.js";
+import type { BadRequestBody } from "my-types.js";
+
+export const rootFetcher new DrFetch(myFetch)
+    .withProcessor(...) // Optional processors
+    .withProcessor(...)
+    .for<400, BadRequestBody>()
+    ;
+
+export const abortableRootFetcher = rootFetcher.clone().abortable();
+```
+
+We clone it because `abortable()` has permanent side effects on the object's state.  Cloning also helps with other 
+scenarios, as explained next.
+
 ### Specializing the Root Fetcher
 
-Ok, nice, but what if we needed a custom processor for just one particular URL?  It makes no sense to add it to the 
-root fetcher, and maybe it is even harmful to do so.  In that case, clone the fetcher.
+What if we needed a custom processor for just one particular URL?  It makes no sense to add it to the root fetcher, and 
+maybe it is even harmful to do so.  In cases like this one, clone the fetcher.
 
-Cloning a fetcher produces a new fetcher with the same data-fetching function, the same body processors and the same 
-body typings, **unless** we specify we want something different, like not cloning the body types, or specifying a new 
-data-fetching function.
+Cloning a fetcher produces a new fetcher with the same data-fetching function, the same body processors, the same 
+support for abortable HTTP requests and the same body typings, **unless** we specify we want something different, like 
+not cloning the body types, or specifying a new data-fetching function.
 
 ```typescript
 import rootFetcher from "./root-fetcher.js";
@@ -192,31 +282,38 @@ function specialFetch(url: FetchFnUrl, init?: FetchFnInit) {
     ...
 }
 
-// Same data-fetching function, body processors and body typing.
-const specialFetcher = rootFetcher.clone(true);
-// Same data-fetching function and body processors.  No body typing.
-const specialFetcher = rootFetcher.clone(false);
-// Different data-fetching function.
-const specialFetcher = rootFetcher.clone(true, { fetchFn: specialFetch });
-// No custom body processors.
-const specialFetcher = rootFetcher.clone(true, { includeProcessors: false });
-// Identical processors and body typing, stock fetch().
-const specialFetcher = rootFetcher.clone(true, { fetchFn: false });
+// Same data-fetching function, body processors, abortable support and body typing.
+const specialFetcher = rootFetcher.clone();
+// Same data-fetching function, abortable support and body processors; no body typing.
+const specialFetcher = rootFetcher.clone({ preserveTyping: false });
+// Same everything; different data-fetching function.
+const specialFetcher = rootFetcher.clone({ fetchFn: specialFetch });
+// Same everything; no custom body processors.
+const specialFetcher = rootFetcher.clone({ includeProcessors: false });
+// Identical processors, abortable support and body typing; stock fetch().
+const specialFetcher = rootFetcher.clone({ fetchFn: false });
+// Identical processors, body typing and fetch function; no abortable support (the default when constructing).
+const specialFetcher = rootFetcher.clone({ preserveAbortable: false });
 ```
 
 > [!IMPORTANT]
-> The first parameter to the `clone` function cannot be a variable.  It is just used as a TypeScript trick to reset the 
-> body typing.  The value itself means nothing in runtime because types are not a runtime thing.
+> `preserveTyping` is a TypeScript trick and cannot be a variable of type `boolean`.  Its value doesn't matter in 
+> runtime because types are not a runtime thing, and TypeScript depends on knowing if the value is `true` or `false`.
+> 
+> On the other hand, `preserveAbortable` is a hybrid:  It uses the same TypeScript trick, but its value does matter in 
+> runtime because an abortable fetcher object has different inner state than a stock fetcher object.  In this sense, 
+> supporting a variable would be ideal, but there's just no way to properly reconcile the TypeScript side with a 
+> variable of type `boolean`.  Therefore, try to always use constant values.
 
 ## Shortcut Functions
 
 > Since **v0.3.0**
 
 `DrFetch` objects now provide the shortcut functions `get`, `head`, `post`, `patch`, `put` and `delete`.  Except for 
-`get` and `head`, all these accept a body parameter.  When this body is a POJO or an array, the body is stringified and 
-the `Content-Type` header is given the value `application/json`.  If a body of any other type is given (that the 
-`fetch()` function accepts, such as `FormData`), no headers are explicitly specified and therefore it is up to what 
-`fetch()` (or the custom data-fetching function you provide) does in these cases.
+`get` and `head`, all these accept a body parameter.  When this body is a POJO or an array, the body is stringified 
+and, if no explicit `Content-Type` header is set, the `Content-Type` header is given the value `application/json`.  If 
+a body of any other type is given (that the `fetch()` function accepts, such as `FormData`), no headers are explicitly 
+added and therefore it is up to what `fetch()` (or the custom data-fetching function you provide) does in these cases.
 
 ```typescript
 import type { Todo } from "./myTypes.js";
@@ -236,6 +333,20 @@ const response = await fetcher
 
 As stated, your custom fetch can be used to further customize the request because these shortcut functions will, in the 
 end, call it.
+
+### Parameters
+
+> Since **v0.8.0**
+
+The `get` and `head` shortcut functions' parameters are:
+
+`(url: URL | string, init?: RequestInit)`
+
+The other shortcut functions' parameters are:
+
+`(url: URL | string, body?: BodyInit | null | Record<string, any>, init?: RequestInit)`
+
+Just note that `init` won't accept the `method` or `body` properties (the above is a simplification).
 
 ## setHeaders and makeIterableHeaders
 
@@ -346,6 +457,18 @@ for (let [key, value] of makeIterableHeaders(myHeaders)) { ... }
 // In unit-testing, perhaps:
 expect([...makeIterableHeaders(myHeaders)].length).to.equal(2);
 ```
+
+## hasHeader and getHeader
+
+These are two helper functions that do exactly what the names imply:  `hasHeader` checks for the existence of a 
+particular HTTP header; `getHeader` obtains the value of a particular HTTP header.
+
+These functions perform a sequential search with the help of `makeIterableHeaders`.
+
+> [!NOTE]
+> Try not to use `getHeader` to determine the existence of a header **without** having the following in mind:  The 
+> function returns `undefined` if the value is not found, but it could return `undefined` if the header is found *and* 
+> its value is `undefined`.
 
 ## Usage Without TypeScript (JavaScript Projects)
 

@@ -2,6 +2,8 @@ import { expect } from "chai";
 import { describe, test } from "mocha";
 import { fake } from 'sinon';
 import { DrFetch } from "../DrFetch.js";
+import type { StatusCode } from "../types.js";
+import { getHeader } from "../headers.js";
 
 const shortcutMethodsWithBody = [
     'post',
@@ -50,7 +52,10 @@ describe('DrFetch', () => {
                 const newFetchFn = fake.resolves(new Response('Hi!', { headers: { 'content-type': contentType } }));
 
                 // Act.
-                const cloned = origFetcher.clone(true, { fetchFn: tc.newFetchFn ? newFetchFn : undefined, includeProcessors: tc.includeProcessors });
+                const cloned = origFetcher.clone({
+                    fetchFn: tc.newFetchFn ? newFetchFn : undefined,
+                    includeProcessors: tc.includeProcessors
+                });
 
                 // Assert.
                 await cloned.fetch('x');
@@ -58,7 +63,7 @@ describe('DrFetch', () => {
                 expect(customProcessorFn.called).to.equal(tc.includeProcessors);
             });
         });
-        test("Should create a clone that uses the standard fetch() function when 'opitons.fetchFn' is 'false'.", async () => {
+        test("Should create a clone that uses the standard fetch() function when 'options.fetchFn' is 'false'.", async () => {
             const fetchFn = fake.resolves(new Response(null));
             const origFetch = globalThis.fetch;
             const fetchFake = fake.resolves(new Response(null));
@@ -66,7 +71,7 @@ describe('DrFetch', () => {
             const fetcher = new DrFetch(fetchFn);
 
             // Act.
-            const clone = fetcher.clone(false, { fetchFn: false });
+            const clone = fetcher.clone({ fetchFn: false });
 
             // Assert.
             try {
@@ -289,7 +294,7 @@ describe('DrFetch', () => {
                 // Assert.
                 expect(fetchFn.calledOnce).to.be.true;
                 expect(fetchFn.args[0][1]['body']).to.equal(JSON.stringify(body));
-                expect(fetchFn.args[0][1]['headers']['content-type']).to.equal('application/json');
+                expect((fetchFn.args[0][1]['headers'] as Headers).get('content-type')).to.equal('application/json');
             });
         });
         shortcutMethodsWithBody.forEach(method => {
@@ -305,7 +310,7 @@ describe('DrFetch', () => {
                 // Assert.
                 expect(fetchFn.calledOnce).to.be.true;
                 expect(fetchFn.args[0][1]['body']).to.equal(JSON.stringify(body));
-                expect(fetchFn.args[0][1]['headers']['content-type']).to.equal('application/json');
+                expect((fetchFn.args[0][1]['headers'] as Headers).get('content-type')).to.equal('application/json');
             });
         });
         shortcutMethodsWithBody.flatMap(method => [
@@ -349,6 +354,102 @@ describe('DrFetch', () => {
                 expect(fetchFn.calledOnce).to.be.true;
                 expect(fetchFn.args[0][1]['body']).to.equal(tc.body.body);
             });
-        })
+        });
+        shortcutMethodsWithBody.forEach(method => {
+            test(`${method}():  Should not add or change the content-type header when a content type is pre-specified.`, async () => {
+                // Arrange.
+                const fetchFn = fake.resolves(new Response());
+                const fetcher = new DrFetch(fetchFn);
+
+                // Act.
+                await fetcher[method]('x', { a: 1 }, { headers: { 'content-type': 'text/plain' } });
+
+                // Assert.
+                expect(fetchFn.calledOnce).to.be.true;
+                expect(getHeader(fetchFn.args[0][1]['headers'], 'content-type')).to.equal('text/plain');
+            });
+        });
+        shortcutMethodsWithBody.forEach(method => {
+            test(`${method}():  Should pass the init object to the fetch() function.`, async () => {
+                // Arrange.
+                const fetchFn = fake.resolves(new Response());
+                const fetcher = new DrFetch(fetchFn);
+                const init = {
+                    headers: { 'x-test': 'abc' },
+                    signal: new AbortController().signal,
+                    mode: 'cors',
+                    credentials: 'include',
+                    redirect: 'follow',
+                    referrer: 'test',
+                    referrerPolicy: 'no-referrer',
+                    integrity: 'sha256-abc'
+                };
+
+                // Act.
+                await fetcher[method]('x', { a: 1 }, init);
+
+                // Assert.
+                expect(fetchFn.calledOnce).to.be.true;
+                Object.entries(init).forEach(([key, value]) => {
+                    expect(fetchFn.args[0][1][key]).to.equal(value);
+                });
+            });
+        });
+    });
+    describe('abortable()', () => {
+        test("Should modify the fetcher object so it supports abortable HTTP requests.", async () => {
+            // Arrange.
+            const abortController = new AbortController();
+            const fetchFn = fake(() => {
+                if (abortController.signal.aborted) {
+                    throw new DOMException('Test:  Aborted.', 'AbortError');
+                }
+                return Promise.resolve(new Response());
+            });
+            const fetcher = new DrFetch(fetchFn).abortable().for<StatusCode, {}>();
+            abortController.abort();
+            const responsePromise = fetcher.fetch('x', { signal: abortController.signal });
+            let didThrow = false;
+            let response: Awaited<ReturnType<typeof fetcher.fetch>>;
+
+            // Act.
+            try {
+                response = await responsePromise;
+            }
+            catch {
+                didThrow = true;
+            }
+
+            // Assert.
+            expect(didThrow, "Exception thrown.").to.be.false;
+            expect(response!.aborted, "Aborted is not properly set.").to.be.true;
+        });
+        test("Should make clone() return a clone fetcher that is also abortable.", async () => {
+            // Arrange.
+            const abortController = new AbortController();
+            const fetchFn = fake(() => {
+                if (abortController.signal.aborted) {
+                    throw new DOMException('Test:  Aborted.', 'AbortError');
+                }
+                return Promise.resolve(new Response());
+            });
+            const fetcher = new DrFetch(fetchFn).abortable().for<StatusCode, {}>().clone();
+            abortController.abort();
+            const responsePromise = fetcher.fetch('x', { signal: abortController.signal });
+            let didThrow = false;
+            let response: Awaited<ReturnType<typeof fetcher.fetch>>;
+
+            // Act.
+            try {
+                response = await responsePromise;
+            }
+            catch {
+                didThrow = true;
+            }
+
+            // Assert.
+            expect(didThrow).to.be.false;
+            expect(response!.aborted).to.be.true;
+        });
     });
 });
