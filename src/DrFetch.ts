@@ -332,7 +332,7 @@ export class DrFetch<TStatusCode extends number = StatusCode, T = unknown, Abort
             }
         }
         return await this.#fetchImpl(url, init)
-            .finally(() => this.#autoAbortMap?.delete(autoAbort.key));
+            .finally(() => autoAbort.key && this.#autoAbortMap?.delete(autoAbort.key));
     }
 
     #createInit(body: BodyInit | null | Record<string, any> | undefined, init?: FetchFnInit) {
