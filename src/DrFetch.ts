@@ -109,8 +109,8 @@ function textParser(response: Response) {
 export class DrFetch<TStatusCode extends number = StatusCode, T = unknown, Abortable extends boolean = false> {
     #fetchFn: FetchFn;
     #customProcessors: [string | RegExp, (response: Response, stockParsers: { json: BodyParserFn<any>; text: BodyParserFn<string>; }) => Promise<any>][] = [];
-    #fetchImpl: Function;
-    #isAbortable: boolean = false;
+    #fetchImpl: (url: FetchFnUrl, init?: FetchFnInit) => Promise<any>;
+    #autoAbortMap: Map<string, AbortController> | undefined;
 
     async #abortableFetch(url: FetchFnUrl, init?: FetchFnInit) {
         try {
@@ -179,6 +179,15 @@ export class DrFetch<TStatusCode extends number = StatusCode, T = unknown, Abort
     }
 
     /**
+     * Gets a Boolean value indicating whether this fetcher object is in abortable mode or not.
+     * 
+     * **NOTE**:  Once in abortable mode, the fetcher object cannot be reverted to non-abortable mode.
+     */
+    get isAbortable() {
+        return !!this.#autoAbortMap;
+    }
+
+    /**
      * Clones this fetcher object by creating a new fetcher object with the same data-fetching function, custom 
      * body processors, and data typing unless specified otherwise via the options parameter.
      * @param options Optional options to control which features are cloned.
@@ -198,7 +207,7 @@ export class DrFetch<TStatusCode extends number = StatusCode, T = unknown, Abort
         if (opts.includeProcessors) {
             newClone.#customProcessors = [...this.#customProcessors];
         }
-        if (opts.preserveAbortable && this.#isAbortable) {
+        if (opts.preserveAbortable && this.isAbortable) {
             newClone.abortable();
         }
         return newClone as DrFetch<TStatusCode, TInherit extends true ? T : unknown, CloneAbortable>;
@@ -281,7 +290,7 @@ export class DrFetch<TStatusCode extends number = StatusCode, T = unknown, Abort
 
     abortable() {
         this.#fetchImpl = this.#abortableFetch.bind(this);
-        this.#isAbortable = true;
+        this.#autoAbortMap ??= new Map<string, AbortController>();
         return this as DrFetch<TStatusCode, T, true>;
     }
 
@@ -292,11 +301,38 @@ export class DrFetch<TStatusCode extends number = StatusCode, T = unknown, Abort
      * @param init Options for the data-fetching function.
      * @returns A response object with the HTTP response's `ok`, `status`, `statusText` and `body` properties.
      */
-    fetch(url: FetchFnUrl, init?: FetchFnInit) {
-        return this.#fetchImpl(url, init) as (Abortable extends true ? Promise<{
-            aborted: true;
-            error: DOMException;
-        } | T> : Promise<T>);
+    async fetch(url: FetchFnUrl, init?: FetchFnInit): Promise<(Abortable extends true ? {
+        aborted: true;
+        error: DOMException;
+    } | T : T)> {
+        if (!this.#autoAbortMap && init?.autoAbort) {
+            throw new Error('Cannot use autoAbort if the fetcher is not in abortable mode.  Call "abortable()" first.');
+        }
+        const autoAbort = {
+            key: (typeof init?.autoAbort === 'string' ? init.autoAbort : init?.autoAbort?.key) ?? '',
+            delay: typeof init?.autoAbort === 'string' ? undefined : init?.autoAbort?.delay,
+        };
+        if (autoAbort.key) {
+            this.#autoAbortMap?.get(autoAbort.key)?.abort();
+            const ac = new AbortController();
+            this.#autoAbortMap!.set(autoAbort.key, ac);
+            init ??= {};
+            init.signal = ac.signal;
+            if (autoAbort.delay !== undefined) {
+                const aborted = await new Promise<boolean>((rs) => {
+                    setTimeout(() => rs(ac.signal.aborted), autoAbort.delay);
+                });
+                if (aborted) {
+                    // @ts-expect-error TS2322: A runtime check is in place to ensure that the type is correct.
+                    return {
+                        aborted: true,
+                        error: new DOMException('Aborted', 'AbortError')
+                    };
+                }
+            }
+        }
+        return await this.#fetchImpl(url, init)
+            .finally(() => this.#autoAbortMap?.delete(autoAbort.key));
     }
 
     #createInit(body: BodyInit | null | Record<string, any> | undefined, init?: FetchFnInit) {
@@ -319,8 +355,7 @@ export class DrFetch<TStatusCode extends number = StatusCode, T = unknown, Abort
      * @returns A response object with the HTTP response's `ok`, `status`, `statusText` and `body` properties.
      */
     get(url: URL | string, init?: Omit<FetchFnInit, 'method' | 'body'>) {
-        init = { ...init, method: 'GET' };
-        return this.fetch(url, init);
+        return this.fetch(url, { ...init, method: 'GET' });
     }
 
     /**
@@ -329,8 +364,7 @@ export class DrFetch<TStatusCode extends number = StatusCode, T = unknown, Abort
      * @returns A response object with the HTTP response's `ok`, `status`, `statusText` and `body` properties.
      */
     head(url: URL | string, init?: Omit<FetchFnInit, 'method' | 'body'>) {
-        init = { ...init, method: 'HEAD' };
-        return this.fetch(url, init);
+        return this.fetch(url, { ...init, method: 'HEAD' });
     }
 
     /**
