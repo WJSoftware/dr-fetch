@@ -9,7 +9,7 @@ This package:
 + Does **not** throw on non-OK HTTP responses.
 + **Can fully type all possible HTTP responses depending on the HTTP status code, even non-standard ones like 499.**
 + **Supports abortable HTTP requests; no boilerplate.**
-+ **Can Auto-abort HTTP requests in favor of newer request versions.**
++ **Can auto-abort HTTP requests in favor of newer request versions, with optional delaying (debouncing).**
 + Works in any runtime that implements `fetch()` (browsers, NodeJS, etc.).
 + Is probably the tiniest fetch wrapper you'll ever need:  **342 LOC** including typing (`npx cloc .\src --exclude-dir=tests`).
 
@@ -144,7 +144,7 @@ else {
 > Since **v0.8.0**
 
 This library currently supports, out of the box, the OK status codes, client error status codes and server error status 
-codes that the MDN website list, and are therefore considered standardized.
+codes that the MDN website lists, and are therefore considered standardized.
 
 If you need to type a response based on any other status code not currently supported, just do something like this:
 
@@ -361,7 +361,7 @@ the HTTP request.  Furthermore, the abort controllers are disposed as soon as th
 ### Delaying an Auto-Abortable HTTP Request
 
 Aborting the HTTP request (the call to `fetch()`) is usually not the only thing that front-end developers do in cases 
-like the autocomplete component.  Developers usually also debounce the action of making the HTTP request for a short 
+like the autocomplete component.  Developers usually also debounce the action of executing the HTTP request for a short 
 period of time (around 500 milliseconds).
 
 You can do this very easily as well with `dr-fetch`.  There is no need to program the debouncing externally.
