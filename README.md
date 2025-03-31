@@ -301,10 +301,10 @@ const specialFetcher = rootFetcher.clone({ preserveAbortable: false });
 > `preserveTyping` is a TypeScript trick and cannot be a variable of type `boolean`.  Its value doesn't matter in 
 > runtime because types are not a runtime thing, and TypeScript depends on knowing if the value is `true` or `false`.
 > 
-> On the other hand, `preserveAbortable` is a hybrid:  It uses the same TypeScript trick, but its value does matter in 
-> runtime because an abortable fetcher object has different inner state than a stock fetcher object.  In this sense, 
-> supporting a variable would be ideal, but there's just no way to properly reconcile the TypeScript side with a 
-> variable of type `boolean`.  Therefore, try to always use constant values.
+> On the other hand, `preserveAbortable` (since **v0.9.0**) is a hybrid:  It uses the same TypeScript trick, but its 
+> value does matter in runtime because an abortable fetcher object has different inner state than a stock fetcher 
+> object.  In this sense, supporting a variable would be ideal, but there's just no way to properly reconcile the 
+> TypeScript side with a variable of type `boolean`.  Therefore, try to always use constant values.
 
 ## Auto-Abortable HTTP Requests
 
@@ -350,6 +350,10 @@ async function fetchAutocompleteList(searchTerm: string) {
     }
 }
 ```
+
+> [!NOTE]
+> The key can be a string, a number or a unique symbol.  Keys are not shared between fetcher instances, and cloning 
+> does not clone any existing keys.
 
 `DrFetch` instances create and keep track of abort controllers by key.  All one must do is provide a key when starting 
 the HTTP request.  Furthermore, the abort controllers are disposed as soon as the HTTP request resolves or rejects.

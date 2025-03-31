@@ -1,5 +1,5 @@
 import { aborted } from "util";
-import type { BodyParserFn, CloneOptions, FetchFn, FetchFnInit, FetchFnUrl, FetchResult, StatusCode } from "./types.js";
+import type { AutoAbortKey, BodyParserFn, CloneOptions, FetchFn, FetchFnInit, FetchFnUrl, FetchResult, StatusCode } from "./types.js";
 import { hasHeader, setHeaders } from "./headers.js";
 
 /**
@@ -110,7 +110,7 @@ export class DrFetch<TStatusCode extends number = StatusCode, T = unknown, Abort
     #fetchFn: FetchFn;
     #customProcessors: [string | RegExp, (response: Response, stockParsers: { json: BodyParserFn<any>; text: BodyParserFn<string>; }) => Promise<any>][] = [];
     #fetchImpl: (url: FetchFnUrl, init?: FetchFnInit) => Promise<any>;
-    #autoAbortMap: Map<string, AbortController> | undefined;
+    #autoAbortMap: Map<AutoAbortKey, AbortController> | undefined;
 
     async #abortableFetch(url: FetchFnUrl, init?: FetchFnInit) {
         try {
@@ -309,8 +309,8 @@ export class DrFetch<TStatusCode extends number = StatusCode, T = unknown, Abort
             throw new Error('Cannot use autoAbort if the fetcher is not in abortable mode.  Call "abortable()" first.');
         }
         const autoAbort = {
-            key: (typeof init?.autoAbort === 'string' ? init.autoAbort : init?.autoAbort?.key) ?? '',
-            delay: typeof init?.autoAbort === 'string' ? undefined : init?.autoAbort?.delay,
+            key: typeof init?.autoAbort === 'object' ? init.autoAbort.key : init?.autoAbort,
+            delay: typeof init?.autoAbort === 'object' ? init.autoAbort.delay : undefined,
         };
         if (autoAbort.key) {
             this.#autoAbortMap?.get(autoAbort.key)?.abort();
@@ -326,7 +326,7 @@ export class DrFetch<TStatusCode extends number = StatusCode, T = unknown, Abort
                     // @ts-expect-error TS2322: A runtime check is in place to ensure that the type is correct.
                     return {
                         aborted: true,
-                        error: new DOMException('Aborted', 'AbortError')
+                        error: new DOMException('Aborted while delayed.', 'AbortError')
                     };
                 }
             }
