@@ -290,7 +290,7 @@ export class DrFetch<TStatusCode extends number = StatusCode, T = unknown, Abort
 
     abortable() {
         this.#fetchImpl = this.#abortableFetch.bind(this);
-        this.#autoAbortMap ??= new Map<string, AbortController>();
+        this.#autoAbortMap ??= new Map<AutoAbortKey, AbortController>();
         return this as DrFetch<TStatusCode, T, true>;
     }
 
