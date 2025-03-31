@@ -2,7 +2,7 @@ import { expect } from "chai";
 import { describe, test } from "mocha";
 import { fake } from 'sinon';
 import { DrFetch } from "../DrFetch.js";
-import type { StatusCode } from "../types.js";
+import type { FetchFnInit, FetchFnUrl, StatusCode } from "../types.js";
 import { getHeader } from "../headers.js";
 
 const shortcutMethodsWithBody = [
@@ -261,7 +261,99 @@ describe('DrFetch', () => {
                 // Assert.
                 expect(processorFn.calledOnce).to.be.true;
             });
-        })
+        });
+        test("Should throw and error if 'autoAbort' is used without calling 'abortable()'.", async () => {
+            // Arrange.
+            const fetchFn = fake.resolves(new Response(null));
+            const fetcher = new DrFetch(fetchFn);
+            let didThrow = false;
+
+            // Act.
+            try {
+                await fetcher.fetch('x', { autoAbort: 'abc' });
+            }
+            catch {
+                didThrow = true;
+            }
+
+            // Assert.
+            expect(didThrow).to.be.true;
+        });
+        test("Should not throw an error if 'autoAbort' is used with 'abortable()'.", async () => {
+            // Arrange.
+            const fetchFn = fake.resolves(new Response(null));
+            const fetcher = new DrFetch(fetchFn).abortable();
+            let didThrow = false;
+
+            // Act.
+            try {
+                await fetcher.fetch('x', { autoAbort: 'abc' });
+            }
+            catch {
+                didThrow = true;
+            }
+
+            // Assert.
+            expect(didThrow).to.be.false;
+        });
+        [
+            {
+                autoAbort: 'abc',
+                text: 'a string',
+            },
+            {
+                autoAbort: { key: 'abc' },
+                text: 'an object',
+            },
+        ].forEach(tc => {
+            test(`Should abort the previous HTTP request whenever 'autoAbort' is used as ${tc.text}.`, async () => {
+                // Arrange.
+                const fetchFn = fake((url: FetchFnUrl, init?: FetchFnInit) => new Promise<Response>((rs, rj) => setTimeout(() => {
+                    if (init?.signal?.aborted) {
+                        rj(new DOMException('Test:  Aborted.', 'AbortError'));
+                    }
+                    rs(new Response(null));
+                }, 0)));
+                const fetcher = new DrFetch(fetchFn).abortable().for<StatusCode, {}>();
+                const request1 = fetcher.fetch('x', { autoAbort: tc.autoAbort });
+                const request2 = fetcher.fetch('y', { autoAbort: tc.autoAbort });
+
+                // Act.
+                const response = await request1;
+
+                // Assert.
+                expect(fetchFn.calledTwice).to.be.true;
+                expect(response.aborted).to.be.true;
+                expect(response.aborted && response.error).to.be.instanceOf(DOMException);
+                expect(response.aborted && response.error.name).to.equal('AbortError');
+
+                // Clean up.
+                await request2;
+            });
+        });
+        test("Should delay the HTTP request whenever a delay is specified.", async () => {
+            // Arrange.
+            const fetchFn = fake((url: FetchFnUrl, init?: FetchFnInit) => new Promise<Response>((rs, rj) => setTimeout(() => {
+                if (init?.signal?.aborted) {
+                    rj(new DOMException('Test:  Aborted.', 'AbortError'));
+                }
+                rs(new Response(null));
+            }, 0)));
+            const fetcher = new DrFetch(fetchFn).abortable().for<StatusCode, {}>();
+            const request1 = fetcher.fetch('x', { autoAbort: { key: 'abc', delay: 0 } });
+            const request2 = fetcher.fetch('y', { autoAbort: { key: 'abc', delay: 0 } });
+            // Act.
+            const response = await request1;
+
+            // Assert.
+            expect(fetchFn.called, 'Fetch was called.').to.be.false;
+            expect(response.aborted, 'Response is not aborted.').to.be.true;
+            expect(response.aborted && response.error).to.be.instanceOf(DOMException);
+            expect(response.aborted && response.error.name).to.equal('AbortError');
+
+            // Clean up.
+            await request2;
+        });
     });
     describe('Shortcut Functions', () => {
         allShortcutMethods.map(x => ({
@@ -377,11 +469,11 @@ describe('DrFetch', () => {
                 const init = {
                     headers: { 'x-test': 'abc' },
                     signal: new AbortController().signal,
-                    mode: 'cors',
-                    credentials: 'include',
-                    redirect: 'follow',
+                    mode: 'cors' as const,
+                    credentials: 'include' as const,
+                    redirect: 'follow' as const,
                     referrer: 'test',
-                    referrerPolicy: 'no-referrer',
+                    referrerPolicy: 'no-referrer' as const,
                     integrity: 'sha256-abc'
                 };
 

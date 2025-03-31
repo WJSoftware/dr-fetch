@@ -62,9 +62,32 @@ export type FetchFn = typeof fetch;
 export type FetchFnUrl = Parameters<FetchFn>[0];
 
 /**
+ * Possible types of keys accepted by the `autoAbort` option.
+ */
+export type AutoAbortKey = string | symbol | number;
+
+/**
  * Type of the fetch function's init parameter.
  */
-export type FetchFnInit = Parameters<FetchFn>[1];
+export type FetchFnInit = Parameters<FetchFn>[1] & {
+    /**
+     * Specifies the options for auto-aborting the HTTP request.
+     * 
+     * If a string is provided, it will be used as the key for the abort signal; provide an object to specify further 
+     * options.
+     */
+    autoAbort?: AutoAbortKey | {
+        /**
+         * The key used to identify the abort signal.
+         */
+        key: AutoAbortKey;
+        /**
+         * The amount of time (in milliseconds) to wait before emitting the request. If not specified, then no delay 
+         * is applied.
+         */
+        delay?: number;
+    };
+};
 
 /**
  * Fetcher cloning options.

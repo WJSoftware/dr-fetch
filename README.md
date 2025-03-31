@@ -9,8 +9,9 @@ This package:
 + Does **not** throw on non-OK HTTP responses.
 + **Can fully type all possible HTTP responses depending on the HTTP status code, even non-standard ones like 499.**
 + **Supports abortable HTTP requests; no boilerplate.**
++ **Can Auto-abort HTTP requests in favor of newer request versions.**
 + Works in any runtime that implements `fetch()` (browsers, NodeJS, etc.).
-+ Probably the tiniest fetch wrapper you'll ever need.
++ Is probably the tiniest fetch wrapper you'll ever need:  **342 LOC** including typing (`npx cloc .\src --exclude-dir=tests`).
 
 ## Does a Non-OK Status Code Warrant an Error?
 
@@ -262,7 +263,7 @@ export const rootFetcher new DrFetch(myFetch)
 export const abortableRootFetcher = rootFetcher.clone().abortable();
 ```
 
-We clone it because `abortable()` has permanent side effects on the object's state.  Cloning also helps with other 
+We clone it because `abortable()` has permanent side effects on the object's state.  Cloning can also help with other 
 scenarios, as explained next.
 
 ### Specializing the Root Fetcher
@@ -300,10 +301,88 @@ const specialFetcher = rootFetcher.clone({ preserveAbortable: false });
 > `preserveTyping` is a TypeScript trick and cannot be a variable of type `boolean`.  Its value doesn't matter in 
 > runtime because types are not a runtime thing, and TypeScript depends on knowing if the value is `true` or `false`.
 > 
-> On the other hand, `preserveAbortable` is a hybrid:  It uses the same TypeScript trick, but its value does matter in 
-> runtime because an abortable fetcher object has different inner state than a stock fetcher object.  In this sense, 
-> supporting a variable would be ideal, but there's just no way to properly reconcile the TypeScript side with a 
-> variable of type `boolean`.  Therefore, try to always use constant values.
+> On the other hand, `preserveAbortable` (since **v0.9.0**) is a hybrid:  It uses the same TypeScript trick, but its 
+> value does matter in runtime because an abortable fetcher object has different inner state than a stock fetcher 
+> object.  In this sense, supporting a variable would be ideal, but there's just no way to properly reconcile the 
+> TypeScript side with a variable of type `boolean`.  Therefore, try to always use constant values.
+
+## Auto-Abortable HTTP Requests
+
+> Since **v0.9.0**
+
+An HTTP request can automatically abort whenever a new version of the HTTP request is executed.  This is useful in 
+cases like server-sided autocomplete components, where an HTTP request is made every time a user stops typing in the 
+search textbox.  As soon as a new HTTP request is made, the previous has no value.  With `dr-fetch`, this chore is 
+fully automated.
+
+To illustrate, this is how it would be done "by hand", as if auto-abortable wasn't a feature:
+
+```typescript
+import { abortableRootFetcher } from './root-fetchers.js';
+import type { SimpleItem } from './my-types.js';
+
+let ac: AbortController;
+
+async function fetchAutocompleteList(searchTerm: string) {
+    ac?.abort();
+    ac = new AbortController();
+    const response = await abortableRootFetcher
+        .for<200, SimpleItem[]>()
+        .get(`/my/data?s=${searchTerm}`, { signal: ac.signal });
+    if (!response.aborted) {
+        ...
+    }
+}
+```
+
+While this is not too bad, it can actually be like this:
+
+```typescript
+import { abortableRootFetcher } from './root-fetchers.js';
+import type { SimpleItem } from './my-types.js';
+
+async function fetchAutocompleteList(searchTerm: string) {
+    const response = await abortableRootFetcher
+        .for<200, SimpleItem[]>()
+        .get(`/my/data?s=${searchTerm}`, { autoAbort: 'my-key' });
+    if (!response.aborted) {
+        ...
+    }
+}
+```
+
+> [!NOTE]
+> The key can be a string, a number or a unique symbol.  Keys are not shared between fetcher instances, and cloning 
+> does not clone any existing keys.
+
+`DrFetch` instances create and keep track of abort controllers by key.  All one must do is provide a key when starting 
+the HTTP request.  Furthermore, the abort controllers are disposed as soon as the HTTP request resolves or rejects.
+
+### Delaying an Auto-Abortable HTTP Request
+
+Aborting the HTTP request (the call to `fetch()`) is usually not the only thing that front-end developers do in cases 
+like the autocomplete component.  Developers usually also debounce the action of making the HTTP request for a short 
+period of time (around 500 milliseconds).
+
+You can do this very easily as well with `dr-fetch`.  There is no need to program the debouncing externally.
+
+This is the previous example, with a delay specified:
+
+```typescript
+import { abortableRootFetcher } from './root-fetchers.js';
+import type { SimpleItem } from './my-types.js';
+
+async function fetchAutocompleteList(searchTerm: string) {
+    const response = await abortableRootFetcher
+        .for<200, SimpleItem[]>()
+        .get(`/my/data?s=${searchTerm}`, { autoAbort: { key: 'my-key', delay: 500 }});
+    if (!response.aborted) {
+        ...
+    }
+}
+```
+
+By using the object form of `autoAbort`, one can specify the desired delay, in milliseconds.
 
 ## Shortcut Functions
 
