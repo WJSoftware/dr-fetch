@@ -52,14 +52,9 @@ export type FetchResult<T, TStatus extends number, TBody = undefined> =
     ) extends infer R ? R : never;
 
 /**
- * Type of the stock fetch function.
- */
-export type FetchFn = typeof fetch;
-
-/**
  * Type of the fetch function's URL parameter.
  */
-export type FetchFnUrl = Parameters<FetchFn>[0];
+export type FetchFnUrl = Parameters<typeof fetch>[0];
 
 /**
  * Possible types of keys accepted by the `autoAbort` option.
@@ -69,7 +64,7 @@ export type AutoAbortKey = string | symbol | number;
 /**
  * Type of the fetch function's init parameter.
  */
-export type FetchFnInit = Parameters<FetchFn>[1] & {
+export type FetchFnInit = Parameters<typeof fetch>[1] & {
     /**
      * Specifies the options for auto-aborting the HTTP request.
      * 
@@ -88,6 +83,11 @@ export type FetchFnInit = Parameters<FetchFn>[1] & {
         delay?: number;
     };
 };
+
+/**
+ * Type of the stock fetch function.
+ */
+export type FetchFn<TInit extends FetchFnInit = FetchFnInit> = (url: FetchFnUrl, init?: TInit) => Promise<Response>;
 
 /**
  * Fetcher cloning options.

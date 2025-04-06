@@ -115,13 +115,18 @@ function textParser(response: Response) {
  * existing one using the parent's `clone` function.  When cloning, pass a new data-fetching function (if required) so 
  * the clone uses this one instead of the one of the parent fetcher.
  */
-export class DrFetch<TStatusCode extends number = StatusCode, T = unknown, Abortable extends boolean = false> {
-    #fetchFn: FetchFn;
+export class DrFetch<
+    TStatusCode extends number = StatusCode,
+    TFetchInit extends FetchFnInit = FetchFnInit,
+    T = unknown,
+    Abortable extends boolean = false
+> {
+    #fetchFn: FetchFn<TFetchInit>;
     #customProcessors: [ProcessorPattern, (response: Response, stockParsers: { json: BodyParserFn<any>; text: BodyParserFn<string>; }) => Promise<any>][] = [];
-    #fetchImpl: (url: FetchFnUrl, init?: FetchFnInit) => Promise<any>;
+    #fetchImpl: (url: FetchFnUrl, init?: TFetchInit) => Promise<any>;
     #autoAbortMap: Map<AutoAbortKey, AbortController> | undefined;
 
-    async #abortableFetch(url: FetchFnUrl, init?: FetchFnInit) {
+    async #abortableFetch(url: FetchFnUrl, init?: TFetchInit) {
         try {
             return await this.#simpleFetch(url, init);
         }
@@ -136,7 +141,7 @@ export class DrFetch<TStatusCode extends number = StatusCode, T = unknown, Abort
         }
     }
 
-    async #simpleFetch(url: FetchFnUrl, init?: FetchFnInit) {
+    async #simpleFetch(url: FetchFnUrl, init?: TFetchInit) {
         const response = await this.#fetchFn(url, init);
         const body = await this.#readBody(response);
         return {
@@ -182,7 +187,7 @@ export class DrFetch<TStatusCode extends number = StatusCode, T = unknown, Abort
      * function to register a custom body processor.
      * @param fetchFn Optional data-fetching function to use instead of the stock `fetch` function.
      */
-    constructor(fetchFn?: FetchFn) {
+    constructor(fetchFn?: FetchFn<TFetchInit>) {
         this.#fetchFn = fetchFn ?? fetch.bind(globalThis.window || global);
         this.#fetchImpl = this.#simpleFetch.bind(this);
     }
@@ -219,7 +224,7 @@ export class DrFetch<TStatusCode extends number = StatusCode, T = unknown, Abort
         if (opts.preserveAbortable && this.isAbortable) {
             newClone.abortable();
         }
-        return newClone as DrFetch<TStatusCode, TInherit extends true ? T : unknown, CloneAbortable>;
+        return newClone as DrFetch<TStatusCode, TFetchInit, TInherit extends true ? T : unknown, CloneAbortable>;
     }
 
     /**
@@ -249,7 +254,7 @@ export class DrFetch<TStatusCode extends number = StatusCode, T = unknown, Abort
      * @returns This fetcher object with its response type modified to include the body specification provided.
      */
     for<TStatus extends TStatusCode, TBody = {}>() {
-        return this as DrFetch<TStatusCode, FetchResult<T, TStatus, TBody>, Abortable>;
+        return this as DrFetch<TStatusCode, TFetchInit, FetchResult<T, TStatus, TBody>, Abortable>;
     }
 
     #contentMatchesType(contentType: string, response: Response, ...types: ProcessorPattern[]) {
@@ -308,7 +313,7 @@ export class DrFetch<TStatusCode extends number = StatusCode, T = unknown, Abort
     abortable() {
         this.#fetchImpl = this.#abortableFetch.bind(this);
         this.#autoAbortMap ??= new Map<AutoAbortKey, AbortController>();
-        return this as DrFetch<TStatusCode, T, true>;
+        return this as DrFetch<TStatusCode, TFetchInit, T, true>;
     }
 
     /**
@@ -318,7 +323,7 @@ export class DrFetch<TStatusCode extends number = StatusCode, T = unknown, Abort
      * @param init Options for the data-fetching function.
      * @returns A response object with the HTTP response's `ok`, `status`, `statusText` and `body` properties.
      */
-    async fetch(url: FetchFnUrl, init?: FetchFnInit): Promise<(Abortable extends true ? {
+    async fetch(url: FetchFnUrl, init?: TFetchInit): Promise<(Abortable extends true ? {
         aborted: true;
         error: DOMException;
     } | T : T)> {
@@ -333,7 +338,7 @@ export class DrFetch<TStatusCode extends number = StatusCode, T = unknown, Abort
             this.#autoAbortMap?.get(autoAbort.key)?.abort();
             const ac = new AbortController();
             this.#autoAbortMap!.set(autoAbort.key, ac);
-            init ??= {};
+            init ??= {} as TFetchInit;
             init.signal = ac.signal;
             if (autoAbort.delay !== undefined) {
                 const aborted = await new Promise<boolean>((rs) => {
@@ -371,8 +376,8 @@ export class DrFetch<TStatusCode extends number = StatusCode, T = unknown, Abort
      * @param url URL for the fetch function call.
      * @returns A response object with the HTTP response's `ok`, `status`, `statusText` and `body` properties.
      */
-    get(url: URL | string, init?: Omit<FetchFnInit, 'method' | 'body'>) {
-        return this.fetch(url, { ...init, method: 'GET' });
+    get(url: URL | string, init?: Omit<TFetchInit, 'method' | 'body'>) {
+        return this.fetch(url, { ...init, method: 'GET' } as TFetchInit);
     }
 
     /**
@@ -380,8 +385,8 @@ export class DrFetch<TStatusCode extends number = StatusCode, T = unknown, Abort
      * @param url URL for the fetch function call.
      * @returns A response object with the HTTP response's `ok`, `status`, `statusText` and `body` properties.
      */
-    head(url: URL | string, init?: Omit<FetchFnInit, 'method' | 'body'>) {
-        return this.fetch(url, { ...init, method: 'HEAD' });
+    head(url: URL | string, init?: Omit<TFetchInit, 'method' | 'body'>) {
+        return this.fetch(url, { ...init, method: 'HEAD' } as TFetchInit);
     }
 
     /**
@@ -398,10 +403,10 @@ export class DrFetch<TStatusCode extends number = StatusCode, T = unknown, Abort
      * does in those cases.
      * @returns A response object with the HTTP response's `ok`, `status`, `statusText` and `body` properties.
      */
-    post(url: URL | string, body?: BodyInit | null | Record<string, any>, init?: Omit<FetchFnInit, 'method' | 'body'>) {
+    post(url: URL | string, body?: BodyInit | null | Record<string, any>, init?: Omit<TFetchInit, 'method' | 'body'>) {
         const fullInit = this.#createInit(body, init);
         fullInit.method = 'POST';
-        return this.fetch(url, fullInit);
+        return this.fetch(url, fullInit as TFetchInit);
     }
 
     /**
@@ -418,10 +423,10 @@ export class DrFetch<TStatusCode extends number = StatusCode, T = unknown, Abort
      * does in those cases.
      * @returns A response object with the HTTP response's `ok`, `status`, `statusText` and `body` properties.
      */
-    patch(url: URL | string, body?: BodyInit | null | Record<string, any>, init?: Omit<FetchFnInit, 'method' | 'body'>) {
+    patch(url: URL | string, body?: BodyInit | null | Record<string, any>, init?: Omit<TFetchInit, 'method' | 'body'>) {
         const fullInit = this.#createInit(body, init);
         fullInit.method = 'PATCH';
-        return this.fetch(url, fullInit);
+        return this.fetch(url, fullInit as TFetchInit);
     }
 
     /**
@@ -438,10 +443,10 @@ export class DrFetch<TStatusCode extends number = StatusCode, T = unknown, Abort
      * does in those cases.
      * @returns A response object with the HTTP response's `ok`, `status`, `statusText` and `body` properties.
      */
-    delete(url: URL | string, body?: BodyInit | null | Record<string, any>, init?: Omit<FetchFnInit, 'method' | 'body'>) {
+    delete(url: URL | string, body?: BodyInit | null | Record<string, any>, init?: Omit<TFetchInit, 'method' | 'body'>) {
         const fullInit = this.#createInit(body, init);
         fullInit.method = 'DELETE';
-        return this.fetch(url, fullInit);
+        return this.fetch(url, fullInit as TFetchInit);
     }
 
     /**
@@ -458,9 +463,9 @@ export class DrFetch<TStatusCode extends number = StatusCode, T = unknown, Abort
      * does in those cases.
      * @returns A response object with the HTTP response's `ok`, `status`, `statusText` and `body` properties.
      */
-    put(url: URL | string, body?: BodyInit | null | Record<string, any>, init?: Omit<FetchFnInit, 'method' | 'body'>) {
+    put(url: URL | string, body?: BodyInit | null | Record<string, any>, init?: Omit<TFetchInit, 'method' | 'body'>) {
         const fullInit = this.#createInit(body, init);
         fullInit.method = 'PUT';
-        return this.fetch(url, fullInit);
+        return this.fetch(url, fullInit as TFetchInit);
     }
 }
