@@ -558,43 +558,30 @@ away using `.fetch()`, `.get()`, `head()`, `.post()`, `.put()`, `.patch()` or `.
 ## Plug-ins?  Fancy Stuff?
 
 Indeed, we can have fancy stuff.  As demonstration, this section will show you how one can add download progress with 
-a simple class and a custom body processor.
+a simple class, the `fetch-api-progress` NPM package and a custom body processor.
 
-The following is a class for **Svelte v5**.  It contains a reactive `progress` property that is updated as download 
-progresses.
-
-[Live demo in the Svelte REPL](https://svelte.dev/playground/ddeedfb44ab74727ac40df320c552b92?version=5.25.3)
-
-> [!NOTE]
-> You should have no problems translating this to Vue, SolidJS or even Angular since all these are signal-powered.
-> For React, you'll have to get rid of the signals part and perhaps make it callback-powered.
+[Live demo in the Svelte REPL](https://svelte.dev/playground/ddeedfb44ab74727ac40df320c552b92)
 
 ```ts
+import { trackResponseProgress } from "fetch-api-progress";
+
 export class DownloadProgress {
     progress = $state(0);
+    response;
 
     constructor(response: Response) {
-        this.#downloadResponse(response);
-    }
-
-    async #downloadResponse(response: Response) {
-        const totalSize = +(response.headers.get('content-length') ?? 0);
-        let receivedSize = 0;
-        const bodyReader = response.body!.getReader();
-        while (bodyReader) {
-            const { done, value } = await bodyReader.read();
-            if (done) {
-                break;
-            }
-            receivedSize += value.length;
-            this.progress = (receivedSize / totalSize);
-        }
+        this.response = response;
+        trackResponseProgress(response, (p) => {
+            this.progress = p.lengthComputable ? p.loaded / p.total : 0;
+        });
     }
 }
 ```
 
-The class is actually discarding the contents of the downloaded file.  Make sure you modify it to save the data.  This 
-example merely cares about illustrating the mechanism of how you can post-process HTTP responses.
+The above class is a simple Svelte v5 class that exposes a reactive `progress` property.  Feel free to create 
+equivalent classes/wrappers for your favorite frameworks.
+
+The `response` property can be used to access the original response object, to, for instance, get the actual data.
 
 ### How To Use
 
@@ -617,7 +604,7 @@ carry the class instance in the `body` property.
     import { DownloadProgress } from "./DownloadProgress.svelte.js";
     import downloader from "./downloader.js";
 
-    let download = $state<Download>();
+    let download = $state<DownloadProgress>();
 
     async function startDownload() {
         download = (await downloader
