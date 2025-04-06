@@ -7,8 +7,9 @@
   "type": "module",
   "scripts": {
     "test": "ts-mocha -n loader=ts-node/esm -p ./tsconfig.json ./src/tests/**/*.test.ts",
-    "build": "npx tsc && npx publint",
-    "prebuild": "npm run test"
+    "build": "tsc && publint",
+    "prebuild": "npm run test",
+    "prepublishOnly": "npm run build"
   },
   "keywords": [
     "fetch"
