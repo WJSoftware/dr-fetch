@@ -11,7 +11,7 @@ This package:
 + **Supports abortable HTTP requests; no boilerplate.**
 + **Can auto-abort HTTP requests in favor of newer request versions, with optional delaying (debouncing).**
 + Works in any runtime that implements `fetch()` (browsers, NodeJS, etc.).
-+ Is probably the tiniest fetch wrapper you'll ever need:  **342 LOC** including typing (`npx cloc .\src --exclude-dir=tests`).
++ Is probably the tiniest fetch wrapper you'll ever need:  **364 LOC** including typing (`npx cloc .\src --exclude-dir=tests`).
 
 ## Does a Non-OK Status Code Warrant an Error?
 
@@ -564,9 +564,9 @@ a simple class, the `fetch-api-progress` NPM package and a custom body processor
 [Live demo in the Svelte REPL](https://svelte.dev/playground/ddeedfb44ab74727ac40df320c552b92)
 
 > [!NOTE]
-> If you wanted to, `fetch-api-progress` also supports upload progress.  As of **v0.9.0** of this library, however, is 
-> not too simple to integrate.  Soon, the ability to pass custom options to the core `fetch()` function will be a 
-> feature and will solve this integration scenario quite elegantly.  Stay tuned.
+> If you wanted to, `fetch-api-progress` also supports upload progress.  This is achieved by calling 
+> `trackRequestProgress` to create a specialized `RequestInit` object.  See [the next subsection](#custom-fetch-options) 
+> for details.
 
 ```ts
 import { trackResponseProgress } from "fetch-api-progress";
@@ -631,7 +631,57 @@ When the button is clicked, the download is started.  The custom processor simpl
 `DownloadProgress` class.  Svelte's reactivity system takes care of the rest, effectively bringing the progress element 
 to life as the download progresses.
 
+### Custom Fetch Options
+
+> Since **v0.10.0**
+
+If your custom data-fetching function (your custom `fetch()`) has abilities that require extra custom options from the 
+caller, you're in luck:  You can and TypeScript and Intellisense will fully work for you.
+
+To exemplify, let's do **upload progress** with the `fetch-api-progress` NPM package.
+
+First, create your custom data-fetching function:
+
+```typescript
+// uploader.ts
+import { DrFetch, type FetchFnUrl, type FetchFnInit } from "dr-fetch";
+import { trackRequestProgress, type FetchProgressEvent } from "fetch-api-progress";
+
+export type UploaderInit = FetchFnInit & {
+    onProgress?: (progress: FetchProgressEvent) => void;
+}
+
+function uploadingFetch(url: FetchFnUrl, init?: UploaderInit) {
+    const trackedRequest = trackRequestProgress(init, init.onProgress);
+    return fetch(url, trackedRequest);
+}
+
+export default new DrFetch(uploadingFetch); // This will be fully typed to support onProgress.
+```
+
+This is it.  From this point forward, you just use this uploader object and the uploads will report progress:
+
+```typescript
+import uploader from './uploader.js';
+
+const response = await uploader
+    .for<200, undefined>()
+    .post(
+        '/upload/big/data',
+        bigDataBody,
+        {
+            onProgress: (p) => console.log('Progress: %s', (p.lengthComputable && (p.loaded / p.total).toFixed(2)) || 0)
+        }
+    );
+```
+
+And there you were, learning all sorts of weird syntax, writing callbacks left and right to achieve things like this 
+with interceptors in `axios` and `ky`. :smile:
+
 ### I want fancier!
 
-Ok, more features are incoming, but if you feel you definitely need more, remember that `DrFetch` is a class.  You can 
-always extend it as per JavaScript's own rules.
+If you feel you definitely need more, remember that `DrFetch` is a class.  You can always extend it as per JavaScript's 
+own rules.
+
+Also, feel free to [open a new issue](https://github.com/WJSoftware/dr-fetch/issues) if you have an idea for a feature 
+that cannot be easily achievable in "user land".
