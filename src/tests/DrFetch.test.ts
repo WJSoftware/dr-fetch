@@ -488,6 +488,84 @@ describe('DrFetch', () => {
             });
         });
     });
+    describe('withProcessor()', () => {
+        [
+            {
+                text1: 'select',
+                text2: 'a string',
+                pattern: 'text/plain',
+            },
+            {
+                text1: 'select',
+                text2: 'a regular expression',
+                pattern: /text\/plain/i,
+            },
+            {
+                text1: 'select',
+                text2: 'an array of strings',
+                pattern: ["application/json", "text/plain"],
+            },
+            {
+                text1: 'select',
+                text2: 'an array of regular expressions',
+                pattern: [/application\/json/i, /text\/plain/i],
+            },
+            {
+                text1: 'select',
+                text2: 'an array with strings and regular expressions',
+                pattern: ["application/json", /text\/plain/i],
+            },
+            {
+                text1: 'select',
+                text2: 'a predicate function',
+                pattern: (_: Response, c: string) => c === 'text/plain',
+            },
+            {
+                text1: 'skip',
+                text2: 'a string',
+                pattern: 'text/csv',
+            },
+            {
+                text1: 'skip',
+                text2: 'a regular expression',
+                pattern: /text\/csv/i,
+            },
+            {
+                text1: 'skip',
+                text2: 'an array of strings',
+                pattern: ["application/json", "text/csv"],
+            },
+            {
+                text1: 'skip',
+                text2: 'an array of regular expressions',
+                pattern: [/application\/json/i, /text\/csv/i],
+            },
+            {
+                text1: 'skip',
+                text2: 'an array with strings and regular expressions',
+                pattern: ["application/json", /text\/csv/i],
+            },
+            {
+                text1: 'skip',
+                text2: 'a predicate function',
+                pattern: (_: Response, c: string) => c === 'text/csv',
+            },
+        ].forEach(tc => {
+            test(`Should appropriately ${tc.text1} the custom processor when the specified pattern is ${tc.text2}.`, async () => {
+                // Arrange.
+                const fetchFn = fake.resolves(new Response('x', { headers: { 'content-type': 'text/plain' } }));
+                const fetcher = new DrFetch(fetchFn);
+                const processorFn = fake();
+
+                // Act.
+                fetcher.withProcessor(tc.pattern, processorFn);
+                await fetcher.fetch('x');
+
+                // Assert.
+                expect(processorFn.calledOnce).to.equal(tc.text1 === 'select');
+            });
+        });
+    });
     describe('abortable()', () => {
         test("Should modify the fetcher object so it supports abortable HTTP requests.", async () => {
             // Arrange.
@@ -516,7 +594,7 @@ describe('DrFetch', () => {
             expect(didThrow, "Exception thrown.").to.be.false;
             expect(response!.aborted, "Aborted is not properly set.").to.be.true;
         });
-        test("Should make clone() return a clone fetcher that is also abortable.", async () => {
+        test("Should make clone() return a fetcher that is also abortable.", async () => {
             // Arrange.
             const abortController = new AbortController();
             const fetchFn = fake(() => {

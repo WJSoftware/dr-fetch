@@ -1,12 +1,21 @@
-import { aborted } from "util";
-import type { AutoAbortKey, BodyParserFn, CloneOptions, FetchFn, FetchFnInit, FetchFnUrl, FetchResult, StatusCode } from "./types.js";
+import type {
+    AutoAbortKey,
+    BodyParserFn,
+    CloneOptions,
+    FetchFn,
+    FetchFnInit,
+    FetchFnUrl,
+    FetchResult,
+    ProcessorPattern,
+    StatusCode
+} from "./types.js";
 import { hasHeader, setHeaders } from "./headers.js";
 
 /**
  * List of patterns to match against the content-type response header.  If there's a match, the response is treated as 
  * JSON.
  */
-const jsonTypes: (string | RegExp)[] = [
+const jsonTypes: ProcessorPattern[] = [
     /^application\/(\w+\+?)?json/,
 ];
 
@@ -14,7 +23,7 @@ const jsonTypes: (string | RegExp)[] = [
  * List of patterns to match against the content-type response header.  If there's a match, the response is treated as 
  * text.
  */
-const textTypes: (string | RegExp)[] = [
+const textTypes: ProcessorPattern[] = [
     /^text\/.+/,
 ];
 
@@ -99,8 +108,8 @@ function textParser(response: Response) {
  * 
  * ## When to Create a New Fetcher
  * 
- * Create a new fetcher when your current one needs a different data-fetching function or a different set of custom 
- * processors.
+ * Create a new fetcher when your current one needs a different data-fetching function, a different set of custom 
+ * processors, or you need an abortable fetcher (while keeping a non-abortable fetcher also available).
  * 
  * A new fetcher object may be created by creating it from scratch using the class constructor, or by cloning an 
  * existing one using the parent's `clone` function.  When cloning, pass a new data-fetching function (if required) so 
@@ -108,7 +117,7 @@ function textParser(response: Response) {
  */
 export class DrFetch<TStatusCode extends number = StatusCode, T = unknown, Abortable extends boolean = false> {
     #fetchFn: FetchFn;
-    #customProcessors: [string | RegExp, (response: Response, stockParsers: { json: BodyParserFn<any>; text: BodyParserFn<string>; }) => Promise<any>][] = [];
+    #customProcessors: [ProcessorPattern, (response: Response, stockParsers: { json: BodyParserFn<any>; text: BodyParserFn<string>; }) => Promise<any>][] = [];
     #fetchImpl: (url: FetchFnUrl, init?: FetchFnInit) => Promise<any>;
     #autoAbortMap: Map<AutoAbortKey, AbortController> | undefined;
 
@@ -219,13 +228,15 @@ export class DrFetch<TStatusCode extends number = StatusCode, T = unknown, Abort
      * The custom processor will be used if the value of the `"content-type"` header satisfies the given pattern.  The 
      * pattern can be a string or regular expression, and when a string is used, the processor will qualify if the 
      * pattern is found inside the `Content-Type` HTTP header's value.
-     * @param pattern String or regular expression used to test the value of the `Content-Type` HTTP response header.
+     * @param pattern String, regular expression, array of strings or regular expressions or predicate function used to 
+     * test the value of the `Content-Type` HTTP response header.  The predicate function receives the response object 
+     * and the content type.
      * @param processorFn Custom processor function that is given the HTTP response object and the stock body processors, 
      * and is responsible to return the body.
      * @returns The current fetcher object to enable fluent syntax.
      */
     withProcessor(
-        pattern: string | RegExp,
+        pattern: ProcessorPattern,
         processorFn: (response: Response, stockParsers: { json: BodyParserFn<any>; text: BodyParserFn<string>; }) => Promise<any>
     ) {
         this.#customProcessors.push([pattern, processorFn]);
@@ -241,18 +252,24 @@ export class DrFetch<TStatusCode extends number = StatusCode, T = unknown, Abort
         return this as DrFetch<TStatusCode, FetchResult<T, TStatus, TBody>, Abortable>;
     }
 
-    #contentMatchesType(contentType: string, types: (string | RegExp) | (string | RegExp)[]) {
-        if (!Array.isArray(types)) {
-            types = [types];
-        }
+    #contentMatchesType(contentType: string, response: Response, ...types: ProcessorPattern[]) {
         for (let pattern of types) {
-            if (typeof pattern === 'string') {
+            if (Array.isArray(pattern)) {
+                if (this.#contentMatchesType(contentType, response, ...pattern)) {
+                    return true;
+                }
+            } else if (typeof pattern === 'string') {
                 if (contentType.includes(pattern)) {
                     return true;
                 }
             }
-            else {
+            else if (pattern instanceof RegExp) {
                 if (pattern.test(contentType)) {
+                    return true;
+                }
+            }
+            else {
+                if (pattern(response, contentType)) {
                     return true;
                 }
             }
@@ -271,7 +288,7 @@ export class DrFetch<TStatusCode extends number = StatusCode, T = unknown, Abort
         // Custom processors have the highest priority.
         if (this.#customProcessors.length) {
             for (let [pattern, processorFn] of this.#customProcessors) {
-                if (this.#contentMatchesType(contentType, pattern)) {
+                if (this.#contentMatchesType(contentType, response, pattern)) {
                     return await processorFn(response, {
                         json: jsonParser,
                         text: textParser,
@@ -279,10 +296,10 @@ export class DrFetch<TStatusCode extends number = StatusCode, T = unknown, Abort
                 }
             }
         }
-        if (this.#contentMatchesType(contentType, jsonTypes)) {
+        if (this.#contentMatchesType(contentType, response, ...jsonTypes)) {
             return await jsonParser(response);
         }
-        else if (this.#contentMatchesType(contentType, textTypes)) {
+        else if (this.#contentMatchesType(contentType, response, ...textTypes)) {
             return await textParser(response);
         }
         throw new Error(`Could not determine how to process body of type "${contentType}".  Provide a custom processor by calling 'withProcessor()'.`);
