@@ -113,3 +113,8 @@ export type CloneOptions<BodyTyping extends boolean | undefined, Abortable exten
      */
     preserveAbortable?: Abortable;
 };
+
+/**
+ * Defines the possible data types that can be used to install custom body processors.
+ */
+export type ProcessorPattern = string | RegExp | (string | RegExp)[] | ((response: Response, contentType: string) => boolean);

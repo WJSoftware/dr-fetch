@@ -98,7 +98,8 @@ export default new DrFetch(myFetch)
 ```
 
 > [!NOTE]
-> The content type can also be matched passing a regular expression instead of a string.
+> The matching pattern can be a string, a regular expression, or an array of either.  If this is not sufficient, pass 
+> a predicate function with signature `(response: Response, contentType: string) => boolean`.
 
 Now the fetcher object is ready for use.
 
@@ -562,6 +563,11 @@ a simple class, the `fetch-api-progress` NPM package and a custom body processor
 
 [Live demo in the Svelte REPL](https://svelte.dev/playground/ddeedfb44ab74727ac40df320c552b92)
 
+> [!NOTE]
+> If you wanted to, `fetch-api-progress` also supports upload progress.  As of **v0.9.0** of this library, however, is 
+> not too simple to integrate.  Soon, the ability to pass custom options to the core `fetch()` function will be a 
+> feature and will solve this integration scenario quite elegantly.  Stay tuned.
+
 ```ts
 import { trackResponseProgress } from "fetch-api-progress";
 
@@ -624,3 +630,8 @@ carry the class instance in the `body` property.
 When the button is clicked, the download is started.  The custom processor simply creates the new instance of the 
 `DownloadProgress` class.  Svelte's reactivity system takes care of the rest, effectively bringing the progress element 
 to life as the download progresses.
+
+### I want fancier!
+
+Ok, more features are incoming, but if you feel you definitely need more, remember that `DrFetch` is a class.  You can 
+always extend it as per JavaScript's own rules.
