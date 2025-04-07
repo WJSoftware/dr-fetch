@@ -677,13 +677,10 @@ const response = await uploader
     );
 ```
 
-And there you were, learning all sorts of weird syntax, writing callbacks left and right to achieve things like this 
-with interceptors in `axios` and `ky`. :smile:
-
 ### I want fancier!
 
 If you feel you definitely need more, remember that `DrFetch` is a class.  You can always extend it as per JavaScript's 
 own rules.
 
 Are you still stuck?  [Open a new issue](https://github.com/WJSoftware/dr-fetch/issues) if you have an idea for a 
-feature that cannot be easily achievable in "user land".
+feature that cannot be easily achieved in "user land".
