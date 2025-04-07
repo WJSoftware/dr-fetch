@@ -540,6 +540,8 @@ expect([...makeIterableHeaders(myHeaders)].length).to.equal(2);
 
 ## hasHeader and getHeader
 
+> Since **v0.8.0**
+
 These are two helper functions that do exactly what the names imply:  `hasHeader` checks for the existence of a 
 particular HTTP header; `getHeader` obtains the value of a particular HTTP header.
 
@@ -636,11 +638,11 @@ to life as the download progresses.
 > Since **v0.10.0**
 
 If your custom data-fetching function (your custom `fetch()`) has abilities that require extra custom options from the 
-caller, you're in luck:  You can and TypeScript and Intellisense will fully work for you.
+caller, you're in luck:  You can, and TypeScript and Intellisense will fully have your back.
 
 To exemplify, let's do **upload progress** with the `fetch-api-progress` NPM package.
 
-First, create your custom data-fetching function:
+As first and last step, create your custom data-fetching function and give it to `DrFetch`:
 
 ```typescript
 // uploader.ts
@@ -659,7 +661,7 @@ function uploadingFetch(url: FetchFnUrl, init?: UploaderInit) {
 export default new DrFetch(uploadingFetch); // This will be fully typed to support onProgress.
 ```
 
-This is it.  From this point forward, you just use this uploader object and the uploads will report progress:
+Simple, right?  I hope it is.
 
 ```typescript
 import uploader from './uploader.js';
@@ -683,5 +685,5 @@ with interceptors in `axios` and `ky`. :smile:
 If you feel you definitely need more, remember that `DrFetch` is a class.  You can always extend it as per JavaScript's 
 own rules.
 
-Also, feel free to [open a new issue](https://github.com/WJSoftware/dr-fetch/issues) if you have an idea for a feature 
-that cannot be easily achievable in "user land".
+Are you still stuck?  [Open a new issue](https://github.com/WJSoftware/dr-fetch/issues) if you have an idea for a 
+feature that cannot be easily achievable in "user land".
