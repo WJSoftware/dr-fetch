@@ -120,10 +120,11 @@ const response = await fetcher
 
 The object stored in the `response` variable will contain the following properties:
 
-+ `aborted`:  Will be `false` (since **v0.8.0**)
++ `aborted`:  Will be `false` (since **v0.8.0**).
 + `ok`:  Same as `Response.ok`.
 + `status`:  Same as `Response.status`.
 + `statusText`:  Same as `Response.statusText`.
++ `headers`:  Same as `Response.headers` (since **v0.11.0**).
 + `body`:  The HTTP response body, already parsed and typed according to the specification:  `MyData[]` if the status 
 code was `200`, or `{ loginUrl: string; }` if the status code was `401`.
 
