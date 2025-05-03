@@ -11,7 +11,7 @@ This package:
 + **Supports abortable HTTP requests; no boilerplate.**
 + **Can auto-abort HTTP requests in favor of newer request versions, with optional delaying (debouncing).**
 + Works in any runtime that implements `fetch()` (browsers, NodeJS, etc.).
-+ Is probably the tiniest fetch wrapper you'll ever need:  **364 LOC** including typing (`npx cloc .\src --exclude-dir=tests`).
++ Is probably the tiniest fetch wrapper you'll ever need:  **421 LOC** including typing (`npx cloc .\src --exclude-dir=tests`).
 
 ## Does a Non-OK Status Code Warrant an Error?
 
@@ -149,8 +149,8 @@ else {
 > Since v0.11.0
 
 All standardized HTTP status codes documented at [MDN](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status) 
-have been collected into the `StatusCodes` enumeration.  Feel free to import it and use it to make your code far more 
-readable and free of magic numbers.
+for the 2xx, 4xx and 5xx ranges have been collected into the `StatusCodes` enumeration.  Feel free to import it and use 
+it to make your code far more readable and free of magic numbers.
 
 ```typescript
 import { StatusCodes } from "dr-fetch";
