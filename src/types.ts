@@ -33,13 +33,47 @@ export type BodyParserFn<T> = (response: Response) => Promise<T>;
  * Type that builds a single status code's response.
  */
 type CoreFetchResult<TStatus extends number, TBody> = {
+    /**
+     * Indicates whether the request was aborted.
+     */
     aborted: false;
+    /**
+     * Indicates whether the request was successful (2xx).
+     */
     ok: TStatus extends OkStatusCode ? true : false;
+    /**
+     * The status code of the response.
+     */
     status: TStatus;
+    /**
+     * The status text of the response.
+     */
     statusText: string;
+    /**
+     * The HTTP response headers.
+     */
+    headers: Headers;
 } & (TBody extends undefined ? {} : {
-    body: TBody
-});
+    /**
+     * The parsed body obtained from the response.
+     */
+    body: TBody;
+    });
+
+/**
+ * Type that defines the result of an aborted fetch request.
+ */
+export type AbortedFetchResult = {
+    /**
+     * Indicates whether the request was aborted.
+     */
+    aborted: true;
+    /**
+     * The error that caused the request to be aborted.  Useful to examine the `cause` property of the error to 
+     * determine the reason for the abortion, if your implementation needs this.
+     */
+    error: DOMException;
+}
 
 /**
  * Type that builds DrFetch's final result object's type.

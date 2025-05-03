@@ -1,4 +1,5 @@
 import type {
+    AbortedFetchResult,
     AutoAbortKey,
     BodyParserFn,
     CloneOptions,
@@ -149,6 +150,7 @@ export class DrFetch<
             ok: response.ok,
             status: response.status,
             statusText: response.statusText,
+            headers: response.headers,
             body
         } as T;
     }
@@ -323,10 +325,7 @@ export class DrFetch<
      * @param init Options for the data-fetching function.
      * @returns A response object with the HTTP response's `ok`, `status`, `statusText` and `body` properties.
      */
-    async fetch(url: FetchFnUrl, init?: TFetchInit): Promise<(Abortable extends true ? {
-        aborted: true;
-        error: DOMException;
-    } | T : T)> {
+    async fetch(url: FetchFnUrl, init?: TFetchInit): Promise<(Abortable extends true ? AbortedFetchResult | T : T)> {
         if (!this.#autoAbortMap && init?.autoAbort) {
             throw new Error('Cannot use autoAbort if the fetcher is not in abortable mode.  Call "abortable()" first.');
         }
