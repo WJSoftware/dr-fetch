@@ -130,7 +130,10 @@ code was `200`, or `{ loginUrl: string; }` if the status code was `401`.
 Your editor's Intellisense should be able to properly and accurately tell you all this:
 
 ```typescript
-if (response.status === 200) { // In this example, doing response.ok in the IF narrows the type just as well.
+import { StatusCodes } from "dr-fetch"; // Enum available since v0.11.0.
+
+// In this example, doing response.ok in the IF narrows the type just as well.
+if (response.status === StatusCodes.Ok) {
     // Say, display the data somehow/somewhere.  In Svelte, we would set a store, perhaps?
     myDataStore.set(response.body);
 }
@@ -138,6 +141,27 @@ else {
     // TypeScript/Intellisense will tell you that the only other option is for the status code to be 401:
     window.location.href = response.body.loginUrl;
 }
+```
+
+## The StatusCodes Enumeration
+
+> Since v0.11.0
+
+All standardized HTTP status codes documented at [MDN](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status) 
+have been collected into the `StatusCodes` enumeration.  Feel free to import it and use it to make your code far more 
+readable and free of magic numbers.
+
+```typescript
+import { StatusCodes } from "dr-fetch";
+
+...
+if (response.status === StatusCodes.Created) {
+    // Get resource URL from headers.
+}
+else if (response.status === StatusCodes.BadRequest) {
+    ...
+}
+...
 ```
 
 ## Typing For Non-Standard Status Codes

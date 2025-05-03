@@ -10,6 +10,7 @@ describe('index', () => {
             'setHeaders',
             'getHeader',
             'hasHeader',
+            'StatusCodes',
         ];
 
         // Act.
