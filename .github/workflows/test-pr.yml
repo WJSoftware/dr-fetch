@@ -3,7 +3,7 @@ name: Test Pull Request
 on:
   pull_request:
     branches:
-      - **
+    - **
   workflow_dispatch:
     inputs:
       node-version:
@@ -11,10 +11,10 @@ on:
         required: false
         type: choice
         options:
-          - '18'
-          - '20'
-          - '22'
-          - '24'
+        - '18'
+        - '20'
+        - '22'
+        - '24'
         default: '24'
 
 jobs:
