@@ -17,9 +17,9 @@ on:
 jobs:
   test:
     name: On-Demand Unit Testing on Node.js v${{ inputs.node-version }}
-    uses: WJSoftware/cicd/.github/workflows/npm-test.yml@v0.1.0
+    uses: WJSoftware/cicd/.github/workflows/npm-test.yml@v0.2
     secrets: inherit
     with:
       pwsh: false
       build: false
-      node-version: ${{ format('{0}', inputs.node-version) }}
+      node-version: ${{ inputs.node-version }}
