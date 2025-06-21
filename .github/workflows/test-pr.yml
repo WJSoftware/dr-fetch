@@ -13,4 +13,3 @@ jobs:
     with:
       pwsh: false
       build: false
-      ref: ${{ github.head_ref }}
