@@ -1,0 +1,19 @@
+name: On-Demand Unit Testing
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Branch or tag to test'
+        required: true
+        default: 'main'
+
+jobs:
+  test:
+    name: On-Demand Unit Testing on ${{ inputs.ref }}
+    uses: WJSoftware/cicd/.github/workflows/npm-test.yml@v0.2
+    secrets: inherit
+    with:
+      pwsh: false
+      build: false
+      ref: ${{ inputs.ref }}

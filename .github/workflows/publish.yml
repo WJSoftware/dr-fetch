@@ -1,0 +1,30 @@
+name: Publish NPM Package
+
+on:
+  workflow_dispatch:
+    inputs:
+      node-version:
+        description: Node.js version to use.
+        required: false
+        type: choice
+        options:
+          - '18'
+          - '20'
+          - '22'
+          - '24'
+        default: '24'
+      dry-run:
+        description: Performs a dry run of the publish.
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  publish:
+    name: Publish NPM Package
+    uses: WJSoftware/cicd/.github/workflows/npm-publish.yml@v0.1.0
+    secrets: inherit
+    with:
+      node-version: ${{ inputs.node-version }}
+      npm_tag: latest
+      dry_run: ${{ inputs.dry-run }}
