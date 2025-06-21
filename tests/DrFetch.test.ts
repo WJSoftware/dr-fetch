@@ -1,9 +1,9 @@
 import { expect } from "chai";
 import { describe, test } from "mocha";
 import { fake } from 'sinon';
-import { DrFetch } from "../DrFetch.js";
-import type { FetchFnInit, FetchFnUrl, StatusCode } from "../types.js";
-import { getHeader } from "../headers.js";
+import { DrFetch } from "../src/DrFetch.js";
+import type { FetchFnInit, FetchFnUrl, StatusCode } from "../src/types.js";
+import { getHeader } from "../src/headers.js";
 
 const shortcutMethodsWithBody = [
     'post',

@@ -14,7 +14,7 @@ describe('index', () => {
         ];
 
         // Act.
-        const module = await import('../index.js');
+        const module = await import('../src/index.js');
         for (const name of expectedExports) {
             expect(module, `Expected object '${name}' is not exported.`).to.have.property(name);
         }
