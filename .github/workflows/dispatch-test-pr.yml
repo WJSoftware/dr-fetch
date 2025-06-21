@@ -1,4 +1,4 @@
-name: Test Pull Request
+name: On-Demand Unit Testing
 
 on:
   workflow_dispatch:
