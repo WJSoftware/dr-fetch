@@ -20,7 +20,7 @@ on:
 jobs:
   test:
     name: Unit Testing
-    uses: WJSoftware/cicd/.github/workflows/npm-test.yml@0.1.0
+    uses: WJSoftware/cicd/.github/workflows/npm-test.yml@v0.1.0
     secrets: inherit
     with:
       pwsh: false
