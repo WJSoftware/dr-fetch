@@ -22,4 +22,4 @@ jobs:
     with:
       pwsh: false
       build: false
-      node-version: ${{ inputs.node-version }}
+      node-version: ${{ format('{0}', inputs.node-version) }}
