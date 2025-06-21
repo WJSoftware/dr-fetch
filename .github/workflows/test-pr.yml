@@ -4,18 +4,6 @@ on:
   pull_request:
     branches:
     - '**'
-  workflow_dispatch:
-    inputs:
-      node-version:
-        description: Node.js version to use.
-        required: false
-        type: choice
-        options:
-        - '18'
-        - '20'
-        - '22'
-        - '24'
-        default: '24'
 
 jobs:
   test:
@@ -25,4 +13,3 @@ jobs:
     with:
       pwsh: false
       build: false
-      node-version: ${{ inputs.node-version }}
