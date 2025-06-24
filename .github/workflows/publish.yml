@@ -22,7 +22,7 @@ on:
 jobs:
   publish:
     name: Publish NPM Package
-    uses: WJSoftware/cicd/.github/workflows/npm-publish.yml@v0.3
+    uses: WJSoftware/cicd/.github/workflows/npm-publish.yml@v0.4
     secrets: inherit
     with:
       node-version: ${{ inputs.node-version }}

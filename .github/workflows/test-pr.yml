@@ -8,9 +8,8 @@ on:
 jobs:
   test:
     name: Unit Testing
-    uses: WJSoftware/cicd/.github/workflows/npm-test.yml@v0.3
+    uses: WJSoftware/cicd/.github/workflows/npm-test.yml@v0.4
     secrets: inherit
     with:
       pwsh: false
       build: false
-      ref: ${{ github.head_ref }}
