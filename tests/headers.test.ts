@@ -1,6 +1,6 @@
 import { expect } from 'chai';
 import { describe, test } from 'mocha';
-import { getHeader, hasHeader, makeIterableHeaders, setHeaders } from '../headers.js';
+import { getHeader, hasHeader, makeIterableHeaders, setHeaders } from '../src/headers.js';
 
 describe('setHeaders', () => {
     test("Should throw an error whenever the 'init' argument is undefined.", () => {
