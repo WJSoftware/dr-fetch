@@ -13,6 +13,11 @@ on:
           - '22'
           - '24'
         default: '24'
+      npm-tag:
+        description: 'NPM tag to publish the package (e.g., latest, beta, etc.)'
+        required: false
+        default: 'latest'
+        type: string
       dry-run:
         description: Performs a dry run of the publish.
         required: false
@@ -30,5 +35,5 @@ jobs:
     secrets: inherit
     with:
       node-version: ${{ inputs.node-version }}
-      npm-tag: latest
+      npm-tag: ${{ inputs.npm-tag || 'latest' }}
       dry-run: ${{ inputs.dry-run }}
